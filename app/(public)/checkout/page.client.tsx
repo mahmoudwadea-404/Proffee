@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import { ArrowLeft, CreditCard, Loader2, Package } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/lib/cart-context"
-import { createOrder, type CreateOrderInput } from "@/actions/orders"
+import { createOrder, createCardOrder, type CreateOrderInput } from "@/actions/orders"
 
 type CheckoutItem = {
   productId: string
@@ -49,6 +49,7 @@ export default function CheckoutPage() {
     notes: "",
   })
 
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "CARD">("COD")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -112,11 +113,28 @@ export default function CheckoutPage() {
       notes: form.notes || undefined,
       items: displayItems.map((i) => ({
         productId: i.productId,
+        name: i.name,
         quantity: i.quantity,
         price: i.price,
         weight: i.weightLabel,
       })),
       total: displaySubtotal,
+    }
+
+    if (paymentMethod === "CARD") {
+      const result = await createCardOrder(payload)
+
+      if (!result.success) {
+        setError(result.error ?? "Something went wrong")
+        setSubmitting(false)
+        return
+      }
+
+      if (!isBuyNow) {
+        clearCart()
+      }
+      window.location.href = result.checkoutUrl!
+      return
     }
 
     const result = await createOrder(payload)
@@ -282,14 +300,30 @@ export default function CheckoutPage() {
                     type="radio"
                     name="payment"
                     value="COD"
-                    checked
-                    readOnly
+                    checked={paymentMethod === "COD"}
+                    onChange={() => setPaymentMethod("COD")}
+                    className="accent-primary w-4 h-4"
+                  />
+                  <Package className="w-5 h-5 text-primary shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Cash on Delivery</p>
+                    <p className="text-xs text-text-muted">Pay when you receive your order</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 cursor-pointer transition-all duration-300">
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="CARD"
+                    checked={paymentMethod === "CARD"}
+                    onChange={() => setPaymentMethod("CARD")}
                     className="accent-primary w-4 h-4"
                   />
                   <CreditCard className="w-5 h-5 text-primary shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-text-primary">Cash on Delivery</p>
-                    <p className="text-xs text-text-muted">Pay when you receive your order</p>
+                    <p className="text-sm font-medium text-text-primary">Pay with Card</p>
+                    <p className="text-xs text-text-muted">Visa / Mastercard — secure payment via Paymob</p>
                   </div>
                 </label>
               </motion.div>
@@ -332,7 +366,7 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex items-center justify-between text-text-secondary">
                     <span>Payment</span>
-                    <span className="text-text-primary">Cash on Delivery</span>
+                    <span className="text-text-primary">{paymentMethod === "CARD" ? "Card Payment" : "Cash on Delivery"}</span>
                   </div>
                 </div>
 
@@ -352,17 +386,17 @@ export default function CheckoutPage() {
                   disabled={!isValid || submitting}
                   className="w-full py-4 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2"
                 >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Placing Order...
-                    </>
-                  ) : (
-                    <>
-                      <Package className="w-4 h-4" />
-                      Place Order
-                    </>
-                  )}
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {paymentMethod === "CARD" ? "Redirecting to Payment..." : "Placing Order..."}
+                      </>
+                    ) : (
+                      <>
+                        {paymentMethod === "CARD" ? <CreditCard className="w-4 h-4" /> : <Package className="w-4 h-4" />}
+                        {paymentMethod === "CARD" ? "Pay with Card" : "Place Order"}
+                      </>
+                    )}
                 </button>
 
                 <p className="text-xs text-text-muted text-center">

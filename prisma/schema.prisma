@@ -82,19 +82,21 @@ model Address {
 }
 
 model Order {
-  id              String      @id @default(cuid())
-  userId          String
-  user            User        @relation(fields: [userId], references: [id])
-  status          OrderStatus @default(PENDING)
-  paymentStatus   String      @default("UNPAID")
-  paymentMethod   String?
-  total           Float
-  shippingAddress Json
-  phone           String
-  notes           String?
-  items           OrderItem[]
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                  String      @id @default(cuid())
+  userId              String
+  user                User        @relation(fields: [userId], references: [id])
+  status              OrderStatus @default(PENDING)
+  paymentStatus       String      @default("UNPAID")
+  paymentMethod       String?
+  paymobTransactionId String?
+  paymobOrderId       Int?
+  total               Float
+  shippingAddress     Json
+  phone               String
+  notes               String?
+  items               OrderItem[]
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 }
 
 model OrderItem {
