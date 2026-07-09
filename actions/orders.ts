@@ -71,8 +71,26 @@ export async function createOrder(input: CreateOrderInput) {
 
 export type CreateCardOrderInput = CreateOrderInput
 
+function checkEnvVars() {
+  const required = ["PAYMOB_API_KEY", "PAYMOB_INTEGRATION_ID", "PAYMOB_HMAC_SECRET", "PAYMOB_PUBLIC_KEY"] as const
+  const missing: string[] = []
+  const present: string[] = []
+  for (const key of required) {
+    if (process.env[key]) present.push(key)
+    else missing.push(key)
+  }
+  if (missing.length > 0) {
+    console.error("[createCardOrder] MISSING env vars:", missing.join(", "))
+  }
+  console.log(`[createCardOrder] Env vars present (${present.length}/${required.length}):`, present.join(", "))
+  console.log(`[createCardOrder] NEXT_PUBLIC_BASE_URL:`, process.env.NEXT_PUBLIC_BASE_URL ? "set" : "NOT SET (will use localhost fallback)")
+}
+
 export async function createCardOrder(input: CreateCardOrderInput) {
+  checkEnvVars()
+
   try {
+    console.log("[createCardOrder] Step 1: Upserting user...")
     const user = await prisma.user.upsert({
       where: { email: input.email },
       update: { name: input.name, phone: input.phone },
@@ -84,7 +102,9 @@ export async function createCardOrder(input: CreateCardOrderInput) {
         role: "CUSTOMER",
       },
     })
+    console.log("[createCardOrder] User upserted:", user.id)
 
+    console.log("[createCardOrder] Step 2: Creating order in DB...")
     const order = await prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
@@ -113,13 +133,16 @@ export async function createCardOrder(input: CreateCardOrderInput) {
 
       return created
     })
+    console.log("[createCardOrder] Order created:", order.id, "total (EGP):", input.total, "total (cents):", Math.round(input.total * 100))
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"
+    console.log("[createCardOrder] Using baseUrl:", baseUrl)
 
     const nameParts = input.name.trim().split(/\s+/)
     const firstName = nameParts[0] || input.name
     const lastName = nameParts.slice(1).join(" ") || "."
 
+    console.log("[createCardOrder] Step 3: Calling Paymob createPaymentIntention...")
     const { createPaymentIntention, getCheckoutUrl } = await import("@/lib/paymob")
     const intention = await createPaymentIntention({
       amount: Math.round(input.total * 100),
@@ -146,7 +169,9 @@ export async function createCardOrder(input: CreateCardOrderInput) {
       redirectionUrl: `${baseUrl}/checkout/payment-result?orderId=${order.id}`,
       specialReference: order.id,
     })
+    console.log("[createCardOrder] Paymob intention created:", intention.id, "intentionOrderId:", intention.intentionOrderId)
 
+    console.log("[createCardOrder] Step 4: Updating order with Paymob IDs...")
     await prisma.order.update({
       where: { id: order.id },
       data: {
@@ -155,11 +180,22 @@ export async function createCardOrder(input: CreateCardOrderInput) {
       },
     })
 
+    console.log("[createCardOrder] Step 5: Building checkout URL...")
     const checkoutUrl = getCheckoutUrl(intention.clientSecret)
+    console.log("[createCardOrder] Checkout URL built successfully")
 
     return { success: true, checkoutUrl }
   } catch (error) {
-    console.error("Error creating card order:", error)
+    console.error("========== CARD ORDER ERROR ==========")
+    if (error instanceof Error) {
+      console.error("Message:", error.message)
+      console.error("Stack:", error.stack)
+      console.error("Name:", error.name)
+      if ("cause" in error) console.error("Cause:", (error as any).cause)
+    } else {
+      console.error("Non-Error thrown:", error)
+    }
+    console.error("======================================")
     return { success: false, error: "Failed to initiate card payment. Please try again." }
   }
 }

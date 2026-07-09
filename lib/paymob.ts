@@ -58,51 +58,61 @@ export type IntentionResult = {
 export async function createPaymentIntention(
   params: CreateIntentionParams
 ): Promise<IntentionResult> {
+  const secretKey = getSecretKey()
+  const integrationId = getIntegrationId()
+
+  const body = JSON.stringify({
+    amount: Math.round(params.amount),
+    currency: params.currency ?? "EGP",
+    payment_methods: [integrationId],
+    items: params.items,
+    billing_data: {
+      first_name: params.billingData.first_name,
+      last_name: params.billingData.last_name,
+      email: params.billingData.email,
+      phone_number: params.billingData.phone_number,
+      street: params.billingData.street ?? "NA",
+      city: params.billingData.city ?? "NA",
+      country: params.billingData.country ?? "EG",
+      apartment: "NA",
+      floor: "NA",
+      building: "NA",
+      shipping_method: "NA",
+      postal_code: "NA",
+      state: "NA",
+    },
+    customer: {
+      first_name: params.customer.first_name,
+      last_name: params.customer.last_name,
+      email: params.customer.email,
+    },
+    notification_url: params.notificationUrl,
+    redirection_url: params.redirectionUrl,
+    special_reference: params.specialReference,
+  })
+
+  console.log("[paymob] POST to", `${PAYMOB_BASE_URL}/v1/intention/`)
+  console.log("[paymob] integrationId:", integrationId, "amount:", Math.round(params.amount))
+
   const response = await fetch(`${PAYMOB_BASE_URL}/v1/intention/`, {
     method: "POST",
     headers: {
-      Authorization: `Token ${getSecretKey()}`,
+      Authorization: `Token ${secretKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      amount: Math.round(params.amount),
-      currency: params.currency ?? "EGP",
-      payment_methods: [getIntegrationId()],
-      items: params.items,
-      billing_data: {
-        first_name: params.billingData.first_name,
-        last_name: params.billingData.last_name,
-        email: params.billingData.email,
-        phone_number: params.billingData.phone_number,
-        street: params.billingData.street ?? "NA",
-        city: params.billingData.city ?? "NA",
-        country: params.billingData.country ?? "EG",
-        apartment: "NA",
-        floor: "NA",
-        building: "NA",
-        shipping_method: "NA",
-        postal_code: "NA",
-        state: "NA",
-      },
-      customer: {
-        first_name: params.customer.first_name,
-        last_name: params.customer.last_name,
-        email: params.customer.email,
-      },
-      notification_url: params.notificationUrl,
-      redirection_url: params.redirectionUrl,
-      special_reference: params.specialReference,
-    }),
+    body,
   })
 
   if (!response.ok) {
     const errorBody = await response.text()
+    console.error("[paymob] RESPONSE NOT OK — status:", response.status, "body:", errorBody)
     throw new Error(
       `Paymob intention creation failed (${response.status}): ${errorBody}`
     )
   }
 
   const data = await response.json()
+  console.log("[paymob] Intention created — id:", data.id, "intention_order_id:", data.intention_order_id)
   return {
     id: data.id,
     clientSecret: data.client_secret,
