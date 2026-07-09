@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { ArrowLeft, CreditCard, Loader2, Package } from "lucide-react"
@@ -23,18 +23,19 @@ export default function CheckoutPage() {
   const router = useRouter()
   const { items: cartItems, itemCount: cartItemCount, subtotal: cartSubtotal, clearCart } = useCart()
 
-  const [buyNowItem] = useState<CheckoutItem | null>(() => {
+  const [buyNowItem, setBuyNowItem] = useState<CheckoutItem | null>(null)
+  const isBuyNow = buyNowItem !== null
+
+  useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search)
-      if (params.get("buyNow") !== "1") return null
+      if (params.get("buyNow") !== "1") return
       const raw = sessionStorage.getItem("proffee-buy-now")
-      if (!raw) return null
+      if (!raw) return
       const parsed = JSON.parse(raw) as CheckoutItem
-      if (parsed.productId && parsed.price) return parsed
+      if (parsed.productId && parsed.price) setBuyNowItem(parsed)
     } catch { /* ignore */ }
-    return null
-  })
-  const isBuyNow = buyNowItem !== null
+  }, [])
 
   const displayItems = isBuyNow && buyNowItem ? [buyNowItem] : cartItems
   const displaySubtotal = isBuyNow && buyNowItem ? buyNowItem.price * buyNowItem.quantity : cartSubtotal
