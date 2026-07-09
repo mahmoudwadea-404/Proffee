@@ -60,10 +60,20 @@ function clearLocalCart() {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>(() => loadLocalCart())
+  const [items, setItems] = useState<CartItem[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const supabaseRef = useRef(createClient())
   const isFirstRender = useRef(true)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as CartItem[]
+        if (parsed.length > 0) setItems(parsed)
+      }
+    } catch { /* ignore */ }
+  }, [])
 
   useEffect(() => {
     const init = async () => {

@@ -124,7 +124,7 @@ export default function Footer() {
 
       <div className="max-w-6xl mx-auto border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between text-xs text-text-muted gap-4">
         <div>
-          <span>&copy; {new Date().getFullYear()} Proffee. All rights reserved.</span>
+          <span>&copy; 2026 Proffee. All rights reserved.</span>
         </div>
         <div className="flex gap-4">
           <Link href="/privacy" className="hover:text-text-secondary transition-colors">Privacy Policy</Link>
