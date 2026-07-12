@@ -72,7 +72,7 @@ export async function createOrder(input: CreateOrderInput) {
 export type CreateCardOrderInput = CreateOrderInput
 
 function checkEnvVars() {
-  const required = ["PAYMOB_API_KEY", "PAYMOB_INTEGRATION_ID", "PAYMOB_HMAC_SECRET", "PAYMOB_PUBLIC_KEY"] as const
+  const required = ["PAYMOB_SECRET_KEY", "PAYMOB_INTEGRATION_ID", "PAYMOB_HMAC_SECRET", "PAYMOB_PUBLIC_KEY"] as const
   const missing: string[] = []
   const present: string[] = []
   for (const key of required) {

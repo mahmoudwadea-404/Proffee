@@ -105,25 +105,53 @@ export default function CheckoutPage() {
     setError(null)
     setSubmitting(true)
 
-    const payload: CreateOrderInput = {
-      email: form.email,
-      name: form.name,
-      phone: form.phone,
-      address: form.address,
-      city: form.city,
-      notes: form.notes || undefined,
-      items: displayItems.map((i) => ({
-        productId: i.productId,
-        name: i.name,
-        quantity: i.quantity,
-        price: i.price,
-        weight: i.weightLabel,
-      })),
-      total: displaySubtotal,
+    console.log("[Checkout] handleSubmit called, paymentMethod:", paymentMethod, "displayItems count:", displayItems.length, "submitting:", submitting)
+
+    if (displayItems.length === 0) {
+      console.error("[Checkout] displayItems is empty — cannot submit")
+      setError("Your cart is empty. Please add items to your cart before placing an order.")
+      setSubmitting(false)
+      return
+    }
+
+    let payload: CreateOrderInput
+    try {
+      payload = {
+        email: form.email,
+        name: form.name,
+        phone: form.phone,
+        address: form.address,
+        city: form.city,
+        notes: form.notes || undefined,
+        items: displayItems.map((i) => ({
+          productId: i.productId,
+          name: i.name,
+          quantity: i.quantity,
+          price: i.price,
+          weight: i.weightLabel,
+        })),
+        total: displaySubtotal,
+      }
+      console.log("[Checkout] payload built successfully, items:", payload.items.length, "total:", payload.total)
+    } catch (payloadErr) {
+      console.error("[Checkout] ERROR building payload:", payloadErr)
+      setError("Failed to prepare order data. Please try again.")
+      setSubmitting(false)
+      return
     }
 
     if (paymentMethod === "CARD") {
-      const result = await createCardOrder(payload)
+      console.log("[Checkout] Calling createCardOrder...")
+      let result: Awaited<ReturnType<typeof createCardOrder>>
+      try {
+        result = await createCardOrder(payload)
+      } catch (callErr) {
+        console.error("[Checkout] createCardOrder threw (unhandled rejection):", callErr)
+        setError("An unexpected error occurred. Please try again.")
+        setSubmitting(false)
+        return
+      }
+      console.log("[Checkout] createCardOrder returned, success:", result.success)
 
       if (!result.success) {
         setError(result.error ?? "Something went wrong")
@@ -138,7 +166,16 @@ export default function CheckoutPage() {
       return
     }
 
-    const result = await createOrder(payload)
+    console.log("[Checkout] Calling createOrder (COD)...")
+    let result: Awaited<ReturnType<typeof createOrder>>
+    try {
+      result = await createOrder(payload)
+    } catch (callErr) {
+      console.error("[Checkout] createOrder threw (unhandled rejection):", callErr)
+      setError("An unexpected error occurred. Please try again.")
+      setSubmitting(false)
+      return
+    }
 
     if (!result.success) {
       setError(result.error ?? "Something went wrong")

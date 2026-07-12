@@ -3,9 +3,24 @@ import crypto from "node:crypto"
 const PAYMOB_BASE_URL = "https://accept.paymob.com"
 
 function getSecretKey(): string {
-  const key = process.env.PAYMOB_API_KEY
-  if (!key) throw new Error("PAYMOB_API_KEY is not set")
-  return key
+  const key = process.env.PAYMOB_SECRET_KEY
+  if (!key) {
+    throw new Error(
+      "PAYMOB_SECRET_KEY is not set. " +
+      "You need the Secret Key from Paymob Dashboard → Settings → Secret Key, " +
+      "NOT the API Key (which is a base64 JWT). " +
+      "The Intention API (POST /v1/intention/) requires: Authorization: Token <secret_key>"
+    )
+  }
+  const trimmed = key.trim()
+  if (trimmed.startsWith("ZXlK") || trimmed.includes("eyJ")) {
+    throw new Error(
+      "PAYMOB_SECRET_KEY appears to be a legacy API Key (base64 JWT), not the Secret Key. " +
+      "The Intention API requires the Secret Key from Paymob Dashboard → Settings → Secret Key. " +
+      "The API Key (base64 JWT) is for the old /auth/tokens endpoint and will not work here."
+    )
+  }
+  return trimmed
 }
 
 function getIntegrationId(): number {
@@ -93,6 +108,11 @@ export async function createPaymentIntention(
 
   console.log("[paymob] POST to", `${PAYMOB_BASE_URL}/v1/intention/`)
   console.log("[paymob] integrationId:", integrationId, "amount:", Math.round(params.amount))
+
+  const masked = secretKey.length > 8
+    ? `${secretKey.slice(0, 4)}...${secretKey.slice(-4)}`
+    : "<short>"
+  console.log("[paymob] PAYMOB_SECRET_KEY — length:", secretKey.length, "preview:", masked)
 
   const response = await fetch(`${PAYMOB_BASE_URL}/v1/intention/`, {
     method: "POST",
