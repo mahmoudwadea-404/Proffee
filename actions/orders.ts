@@ -293,3 +293,96 @@ export async function createCardOrder(input: CreateCardOrderInput) {
     return { success: false, error: "Failed to initiate card payment. Please try again." }
   }
 }
+
+export type HandlePaymentRedirectInput = {
+  orderId: string
+  success: string
+  id: string
+  order_id: string
+  amount_cents: string
+  created_at: string
+  currency: string
+  error_occured: string
+  has_parent_transaction: string
+  integration_id: string
+  is_3d_secure: string
+  is_auth: string
+  is_capture: string
+  is_refunded: string
+  is_standalone_payment: string
+  is_voided: string
+  owner: string
+  pending: string
+  source_data_pan: string
+  source_data_sub_type: string
+  source_data_type: string
+  hmac: string
+}
+
+/**
+ * Server action called from the payment-result page when Paymob redirects back
+ * after a payment attempt. Verifies the redirect HMAC and updates the order's
+ * paymentStatus. Acts as a fallback for when the webhook doesn't fire
+ * (e.g. AUTHENTICATION_FAILED pre-auth declines).
+ *
+ * Safe to call even if the webhook already processed — it checks current status
+ * before writing and only upgrades from PENDING/UNPAID/FAILED → PAID or FAILED.
+ */
+export async function handlePaymentRedirect(input: HandlePaymentRedirectInput) {
+  console.log("[handlePaymentRedirect] Called for orderId:", input.orderId, "success:", input.success)
+  try {
+    const { verifyRedirectHmac } = await import("@/lib/paymob")
+
+    if (!input.hmac || !input.id || !input.order_id) {
+      console.warn("[handlePaymentRedirect] Missing required Paymob redirect params")
+      return { success: false, error: "Missing Paymob parameters" }
+    }
+
+    const hmacValid = verifyRedirectHmac(input, input.hmac)
+    console.log("[handlePaymentRedirect] HMAC valid:", hmacValid)
+    if (!hmacValid) {
+      console.error("[handlePaymentRedirect] HMAC verification failed — rejecting")
+      return { success: false, error: "Invalid HMAC" }
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: input.orderId },
+      select: {
+        id: true,
+        paymentStatus: true,
+        paymobOrderId: true,
+      },
+    })
+
+    if (!order) {
+      console.warn("[handlePaymentRedirect] Order not found:", input.orderId)
+      return { success: false, error: "Order not found" }
+    }
+
+    console.log("[handlePaymentRedirect] Current order paymentStatus:", order.paymentStatus)
+
+    if (order.paymentStatus === "PAID") {
+      console.log("[handlePaymentRedirect] Order already PAID — no change needed")
+      return { success: true, paymentStatus: "PAID" }
+    }
+
+    const paymobSuccess = input.success === "true"
+    const newStatus = paymobSuccess ? "PAID" : "FAILED"
+    console.log("[handlePaymentRedirect] Redirect success:", paymobSuccess, "→ setting:", newStatus)
+
+    const updated = await prisma.order.update({
+      where: { id: input.orderId },
+      data: {
+        paymentStatus: newStatus,
+        paymobTransactionId: order.paymobOrderId ? undefined : input.id,
+      },
+      select: { id: true, paymentStatus: true },
+    })
+
+    console.log("[handlePaymentRedirect] ✅ Order updated:", JSON.stringify(updated))
+    return { success: true, paymentStatus: updated.paymentStatus }
+  } catch (error) {
+    console.error("[handlePaymentRedirect] Error:", error)
+    return { success: false, error: "Failed to process payment redirect" }
+  }
+}

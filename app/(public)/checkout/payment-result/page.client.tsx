@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { CheckCircle, XCircle, Loader2, ArrowLeft, Package } from "lucide-react"
 import Link from "next/link"
+import { handlePaymentRedirect } from "@/actions/orders"
 
 type PaymentStatus = "loading" | "PAID" | "FAILED" | "PENDING" | "UNPAID" | "not_found"
 
@@ -12,13 +13,59 @@ function PaymentResultContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orderId = searchParams.get("orderId")
+  const paymobSuccess = searchParams.get("success")
   const [status, setStatus] = useState<PaymentStatus>("loading")
 
   useEffect(() => {
     console.log("[PaymentResult] orderId from URL:", orderId)
+    console.log("[PaymentResult] paymob 'success' param:", paymobSuccess)
+
     if (!orderId) {
       console.warn("[PaymentResult] No orderId in URL, setting not_found")
       setStatus("not_found")
+      return
+    }
+
+    // If Paymob redirect includes success=false, immediately mark order as FAILED
+    // via server action (HMAC-verified fallback for when webhook doesn't fire).
+    if (paymobSuccess === "false") {
+      console.log("[PaymentResult] Paymob redirect indicates failure — calling handlePaymentRedirect")
+      const failOrder = async () => {
+        try {
+          const result = await handlePaymentRedirect({
+            orderId,
+            success: paymobSuccess,
+            id: searchParams.get("id") ?? "",
+            order_id: searchParams.get("order_id") ?? "",
+            amount_cents: searchParams.get("amount_cents") ?? "",
+            created_at: searchParams.get("created_at") ?? "",
+            currency: searchParams.get("currency") ?? "",
+            error_occured: searchParams.get("error_occured") ?? "",
+            has_parent_transaction: searchParams.get("has_parent_transaction") ?? "",
+            integration_id: searchParams.get("integration_id") ?? "",
+            is_3d_secure: searchParams.get("is_3d_secure") ?? "",
+            is_auth: searchParams.get("is_auth") ?? "",
+            is_capture: searchParams.get("is_capture") ?? "",
+            is_refunded: searchParams.get("is_refunded") ?? "",
+            is_standalone_payment: searchParams.get("is_standalone_payment") ?? "",
+            is_voided: searchParams.get("is_voided") ?? "",
+            owner: searchParams.get("owner") ?? "",
+            pending: searchParams.get("pending") ?? "",
+            source_data_pan: searchParams.get("source_data_pan") ?? "",
+            source_data_sub_type: searchParams.get("source_data_sub_type") ?? "",
+            source_data_type: searchParams.get("source_data_type") ?? "",
+            hmac: searchParams.get("hmac") ?? "",
+          })
+          console.log("[PaymentResult] handlePaymentRedirect result:", JSON.stringify(result))
+          if (result.success && result.paymentStatus) {
+            setStatus(result.paymentStatus as PaymentStatus)
+            return
+          }
+        } catch (err) {
+          console.error("[PaymentResult] handlePaymentRedirect error:", err)
+        }
+      }
+      failOrder()
       return
     }
 
@@ -48,7 +95,7 @@ function PaymentResultContent() {
     checkStatus()
 
     return () => clearInterval(interval)
-  }, [orderId])
+  }, [orderId, paymobSuccess, searchParams])
 
   console.log("[PaymentResult] Rendering with status:", status)
 

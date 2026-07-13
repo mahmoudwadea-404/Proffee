@@ -207,3 +207,46 @@ export function verifyWebhookHMAC(
 
   return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(receivedHMAC))
 }
+
+/**
+ * Verify HMAC for Paymob's redirect callback (GET query parameters).
+ * Same 20 fields as the webhook but flat (no obj. prefix):
+ *   POST uses obj.id / obj.order.id; GET uses id / order_id.
+ */
+export function verifyRedirectHmac(
+  params: Record<string, string>,
+  receivedHMAC: string
+): boolean {
+  const fields = [
+    params.amount_cents,
+    params.created_at,
+    params.currency,
+    params.error_occured,
+    params.has_parent_transaction,
+    params.id,
+    params.integration_id,
+    params.is_3d_secure,
+    params.is_auth,
+    params.is_capture,
+    params.is_refunded,
+    params.is_standalone_payment,
+    params.is_voided,
+    params.order_id,
+    params.owner,
+    params.pending,
+    params.source_data_pan,
+    params.source_data_sub_type,
+    params.source_data_type,
+    params.success,
+  ]
+
+  const concatenated = fields.map(String).join("")
+  const computed = crypto
+    .createHmac("sha512", getHmacSecret())
+    .update(concatenated)
+    .digest("hex")
+
+  if (computed.length !== receivedHMAC.length) return false
+
+  return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(receivedHMAC))
+}
