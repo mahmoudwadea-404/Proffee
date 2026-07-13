@@ -35,6 +35,7 @@ const statuses = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [updating, setUpdating] = useState<string | null>(null)
 
@@ -43,7 +44,13 @@ export default function AdminOrdersPage() {
     const load = async () => {
       const result = await getOrders()
       if (!mounted) return
-      if (result.success && result.orders) setOrders(result.orders as unknown as Order[])
+      if (result.success && result.orders) {
+        setOrders(result.orders as unknown as Order[])
+        setError(null)
+      } else if (!result.success) {
+        console.error("[AdminOrders] Failed to load orders:", result.error)
+        setError(result.error ?? "Unknown error loading orders")
+      }
       setLoading(false)
     }
     load()
@@ -54,7 +61,12 @@ export default function AdminOrdersPage() {
     setUpdating(orderId)
     await updateOrderStatus(orderId, newStatus)
     const result = await getOrders()
-    if (result.success && result.orders) setOrders(result.orders as unknown as Order[])
+    if (result.success && result.orders) {
+      setOrders(result.orders as unknown as Order[])
+      setError(null)
+    } else if (!result.success) {
+      setError(result.error ?? "Failed to refresh orders after update")
+    }
     setUpdating(null)
   }
 
@@ -69,6 +81,20 @@ export default function AdminOrdersPage() {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <h1 className="text-2xl md:text-3xl font-serif text-text-primary mb-4">Orders</h1>
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
+            <p className="text-red-400 font-medium mb-2">Failed to load orders</p>
+            <p className="text-red-400/70 text-sm">{error}</p>
+          </div>
+        </motion.div>
       </div>
     )
   }

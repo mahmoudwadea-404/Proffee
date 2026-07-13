@@ -38,8 +38,9 @@ export async function getOrders() {
 
     return { success: true, orders }
   } catch (error) {
-    console.error("Error fetching orders:", error)
-    return { success: false, error: "Failed to fetch orders" }
+    console.error("[getOrders] Error fetching orders:", error)
+    const message = error instanceof Error ? error.message : String(error)
+    return { success: false, error: `Failed to fetch orders: ${message}` }
   }
 }
 

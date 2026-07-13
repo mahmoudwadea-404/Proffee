@@ -15,21 +15,31 @@ function PaymentResultContent() {
   const [status, setStatus] = useState<PaymentStatus>("loading")
 
   useEffect(() => {
+    console.log("[PaymentResult] orderId from URL:", orderId)
     if (!orderId) {
+      console.warn("[PaymentResult] No orderId in URL, setting not_found")
       setStatus("not_found")
       return
     }
 
     const checkStatus = async () => {
       try {
+        console.log("[PaymentResult] Polling /api/orders/" + orderId + "/payment-status")
         const res = await fetch(`/api/orders/${orderId}/payment-status`)
+        console.log("[PaymentResult] Response status:", res.status)
         if (!res.ok) {
+          console.warn("[PaymentResult] Response not OK:", res.status, res.statusText)
+          const body = await res.text()
+          console.warn("[PaymentResult] Response body:", body)
           setStatus("not_found")
           return
         }
         const data = await res.json()
+        console.log("[PaymentResult] Response data:", JSON.stringify(data))
+        console.log("[PaymentResult] Setting status to:", data.paymentStatus)
         setStatus(data.paymentStatus)
-      } catch {
+      } catch (err) {
+        console.error("[PaymentResult] Fetch error:", err)
         setStatus("not_found")
       }
     }
@@ -39,6 +49,8 @@ function PaymentResultContent() {
 
     return () => clearInterval(interval)
   }, [orderId])
+
+  console.log("[PaymentResult] Rendering with status:", status)
 
   if (status === "loading") {
     return (
