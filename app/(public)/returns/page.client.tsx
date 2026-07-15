@@ -7,7 +7,7 @@ const steps = [
   {
     icon: Mail,
     title: "1. Contact Us",
-    description: "Email us at hello@proffee.com within 48 hours of receiving your order. Include your order number, photos (if damaged), and a description of the issue.",
+    description: "Email us at proffee3@gmail.com within 48 hours of receiving your order. Include your order number, photos (if damaged), and a description of the issue.",
   },
   {
     icon: FileText,

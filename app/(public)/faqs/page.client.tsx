@@ -29,7 +29,7 @@ const faqs = [
   {
     category: "ordering",
     question: "Can I modify or cancel my order after placing it?",
-    answer: "If your order has not yet been dispatched, please contact us at hello@proffee.com and we will do our best to accommodate changes. Once dispatched, modifications are not possible.",
+    answer: "If your order has not yet been dispatched, please contact us at proffee3@gmail.com and we will do our best to accommodate changes. Once dispatched, modifications are not possible.",
   },
   {
     category: "ordering",
@@ -39,7 +39,7 @@ const faqs = [
   {
     category: "ordering",
     question: "Can I order as a business or wholesale customer?",
-    answer: "Yes, we offer wholesale pricing for cafés, offices, and retailers. Please reach out to us at hello@proffee.com with your estimated volume and we will provide a custom quote.",
+    answer: "Yes, we offer wholesale pricing for cafés, offices, and retailers. Please reach out to us at proffee3@gmail.com with your estimated volume and we will provide a custom quote.",
   },
   {
     category: "shipping",
@@ -69,7 +69,7 @@ const faqs = [
   {
     category: "shipping",
     question: "What happens if my package arrives damaged?",
-    answer: "We take great care in packaging, but if your order arrives damaged, please contact us at hello@proffee.com within 48 hours with photos of the damage and we will make it right.",
+    answer: "We take great care in packaging, but if your order arrives damaged, please contact us at proffee3@gmail.com within 48 hours with photos of the damage and we will make it right.",
   },
   {
     category: "returns",
@@ -79,12 +79,12 @@ const faqs = [
   {
     category: "returns",
     question: "Can I get a refund if I do not like the coffee?",
-    answer: "We stand behind the quality of our coffee. If you are unsatisfied with your purchase, please reach out to us at hello@proffee.com and we will do our best to resolve the issue, including offering a replacement or store credit where appropriate.",
+    answer: "We stand behind the quality of our coffee. If you are unsatisfied with your purchase, please reach out to us at proffee3@gmail.com and we will do our best to resolve the issue, including offering a replacement or store credit where appropriate.",
   },
   {
     category: "returns",
     question: "How do I request a refund or replacement?",
-    answer: "Contact us at hello@proffee.com with your order number and a description of the issue. Our team will review and respond within 1–2 business days with next steps.",
+    answer: "Contact us at proffee3@gmail.com with your order number and a description of the issue. Our team will review and respond within 1–2 business days with next steps.",
   },
   {
     category: "returns",
@@ -119,7 +119,7 @@ const faqs = [
   {
     category: "products",
     question: "Can I request a custom roast profile?",
-    answer: "Yes, we offer custom roasting for larger quantities. Please contact us at hello@proffee.com with your desired profile and volume, and we will coordinate with you.",
+    answer: "Yes, we offer custom roasting for larger quantities. Please contact us at proffee3@gmail.com with your desired profile and volume, and we will coordinate with you.",
   },
   {
     category: "products",
@@ -169,7 +169,7 @@ const faqs = [
   {
     category: "account",
     question: "Can I delete my account?",
-    answer: "Yes, you can request account deletion by contacting us at hello@proffee.com. Please note that order history will be anonymised but retained for record-keeping purposes.",
+    answer: "Yes, you can request account deletion by contacting us at proffee3@gmail.com. Please note that order history will be anonymised but retained for record-keeping purposes.",
   },
   {
     category: "subscription",

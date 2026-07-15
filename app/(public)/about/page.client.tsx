@@ -26,28 +26,7 @@ const values = [
   },
 ]
 
-const team = [
-  {
-    name: "Ahmed Hassan",
-    role: "Founder & Head Roaster",
-    bio: "A third-generation coffee professional with over 15 years of experience sourcing and roasting specialty coffee across East Africa and Latin America.",
-  },
-  {
-    name: "Mariam Youssef",
-    role: "Head of Sourcing",
-    bio: "Mariam travels the world building relationships with coffee producers, ensuring every bean we import meets our exacting standards.",
-  },
-  {
-    name: "Karim El-Sayed",
-    role: "Master Roaster",
-    bio: "With a background in food science, Karim brings precision and artistry to every roast profile, unlocking the full potential of each origin.",
-  },
-  {
-    name: "Nadia Farouk",
-    role: "Customer Experience Lead",
-    bio: "Nadia ensures every interaction with Proffee is as delightful as your morning brew. She leads our community and education programs.",
-  },
-]
+const team: { name: string; role: string; bio: string }[] = []
 
 export default function AboutPageClient() {
   return (

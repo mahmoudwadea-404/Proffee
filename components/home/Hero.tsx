@@ -41,9 +41,9 @@ export default function Hero() {
                 transition={{ duration: 0.7, delay: 0.3 }}
                 className="text-5xl md:text-7xl lg:text-8xl font-serif text-text-primary leading-tight mt-2"
               >
-                Experience the
+                In case of emergency
                 <br />
-                <span className="text-primary">Finest Coffee</span>
+                make a coffee
               </motion.h1>
             </div>
 

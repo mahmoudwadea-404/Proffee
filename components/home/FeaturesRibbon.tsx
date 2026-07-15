@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import { Truck, Flame, ShieldCheck, Gift } from "lucide-react"
 
 const perks = [
-  { icon: Truck, title: "Free Delivery", description: "On orders over EGP 300" },
+  { icon: Truck, title: "Free Delivery", description: "On orders over EGP 1000" },
   { icon: Flame, title: "Fresh & Fast", description: "Roasted to order, shipped same day" },
   { icon: ShieldCheck, title: "Secure Payment", description: "100% secure checkout" },
   { icon: Gift, title: "Loyalty Rewards", description: "Earn points with every purchase" },

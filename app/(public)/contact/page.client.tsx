@@ -6,10 +6,10 @@ import { Mail, Phone, MapPin, Clock, Send } from "lucide-react"
 import { toast } from "sonner"
 
 const contactInfo = [
-  { icon: Mail, label: "Email", value: "hello@proffee.com", href: "mailto:hello@proffee.com" },
-  { icon: Phone, label: "Phone", value: "+20 100 123 4567", href: "tel:+201001234567" },
-  { icon: MapPin, label: "Address", value: "42 Tahrir Street, Zamalek, Cairo, Egypt" },
-  { icon: Clock, label: "Hours", value: "Sat–Thu, 9 AM – 9 PM" },
+  { icon: Mail, label: "Email", value: "proffee3@gmail.com", href: "mailto:proffee3@gmail.com" },
+  { icon: Phone, label: "Phone", value: "01016165218", href: "tel:01016165218" },
+  { icon: MapPin, label: "Address", value: "Al-Husseiniya, Alsharqia, Egypt" },
+  { icon: Clock, label: "Hours", value: "Open 24/7" },
 ]
 
 export default function ContactPageClient() {

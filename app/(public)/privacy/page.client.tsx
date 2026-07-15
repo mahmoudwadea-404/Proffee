@@ -44,7 +44,7 @@ const sections = [
     icon: Mail,
     title: "6. Contact Us",
     content:
-      "If you have any questions about this privacy policy or wish to exercise your data rights, please contact us at hello@proffee.com. We will respond to your request within 30 days.",
+      "If you have any questions about this privacy policy or wish to exercise your data rights, please contact us at proffee3@gmail.com. We will respond to your request within 30 days.",
   },
   {
     icon: Trash2,
