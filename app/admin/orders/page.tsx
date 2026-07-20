@@ -17,6 +17,12 @@ type Order = {
   paymentMethod: string | null
   total: number
   createdAt: Date
+  firstName: string
+  lastName: string
+  governorate: string
+  city: string
+  address: string
+  phone: string
   user: { name: string; email: string }
   items: OrderItem[]
 }
@@ -128,6 +134,7 @@ export default function AdminOrdersPage() {
                   <th className="text-left px-5 py-4 text-text-muted font-medium text-xs uppercase tracking-wider">Order ID</th>
                   <th className="text-left px-5 py-4 text-text-muted font-medium text-xs uppercase tracking-wider">Customer</th>
                   <th className="text-left px-5 py-4 text-text-muted font-medium text-xs uppercase tracking-wider">Items</th>
+                  <th className="text-left px-5 py-4 text-text-muted font-medium text-xs uppercase tracking-wider">Shipping</th>
                   <th className="text-right px-5 py-4 text-text-muted font-medium text-xs uppercase tracking-wider">Total</th>
                   <th className="text-left px-5 py-4 text-text-muted font-medium text-xs uppercase tracking-wider">Payment</th>
                   <th className="text-left px-5 py-4 text-text-muted font-medium text-xs uppercase tracking-wider">Status</th>
@@ -137,7 +144,7 @@ export default function AdminOrdersPage() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-12 text-center text-text-muted">
+                    <td colSpan={8} className="px-5 py-12 text-center text-text-muted">
                       {search ? "No orders match your search." : "No orders yet."}
                     </td>
                   </tr>
@@ -163,6 +170,13 @@ export default function AdminOrdersPage() {
                           {order.items.length > 2 && (
                             <p className="text-text-muted text-xs">+{order.items.length - 2} more</p>
                           )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div>
+                          <p className="text-text-primary text-xs font-medium">{order.firstName} {order.lastName}</p>
+                          <p className="text-text-muted text-xs">{order.governorate}, {order.city}</p>
+                          <p className="text-text-muted text-xs truncate max-w-[160px]" title={order.address}>{order.address}</p>
                         </div>
                       </td>
                       <td className="px-5 py-4 text-text-primary font-sans tabular-nums text-right font-semibold">

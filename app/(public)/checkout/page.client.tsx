@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowLeft, CreditCard, Loader2, Package } from "lucide-react"
+import { ArrowLeft, CreditCard, Loader2, MapPin, Package } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/lib/cart-context"
 import { createOrder, createCardOrder, type CreateOrderInput } from "@/actions/orders"
+import LocationPicker from "@/components/checkout/LocationPicker"
 
 type CheckoutItem = {
   productId: string
@@ -18,6 +19,41 @@ type CheckoutItem = {
   weightLabel: string
   quantity: number
 }
+
+const GOVERNORATES = [
+  "القاهرة",
+  "الجيزة",
+  "الإسكندرية",
+  "الدقهلية",
+  "البحر الأحمر",
+  "البحيرة",
+  "الفيوم",
+  "الغربية",
+  "الإسماعيلية",
+  "المنوفية",
+  "المنيا",
+  "القليوبية",
+  "الوادي الجديد",
+  "السويس",
+  "أسوان",
+  "أسيوط",
+  "بني سويف",
+  "بورسعيد",
+  "دمياط",
+  "الشرقية",
+  "جنوب سيناء",
+  "كفر الشيخ",
+  "مطروح",
+  "الأقصر",
+  "قنا",
+  "شمال سيناء",
+  "سوهاج",
+]
+
+const INPUT_CLASS =
+  "w-full px-4 py-3 rounded-xl bg-background border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:border-primary transition-colors duration-300"
+
+const LABEL_CLASS = "text-xs font-medium text-text-secondary uppercase tracking-wider"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -42,13 +78,19 @@ export default function CheckoutPage() {
   const displayCount = isBuyNow && buyNowItem ? buyNowItem.quantity : cartItemCount
 
   const [form, setForm] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     address: "",
+    governorate: "",
     city: "",
     notes: "",
   })
+
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [showMap, setShowMap] = useState(false)
 
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "CARD">("COD")
   const [submitting, setSubmitting] = useState(false)
@@ -105,10 +147,7 @@ export default function CheckoutPage() {
     setError(null)
     setSubmitting(true)
 
-    console.log("[Checkout] handleSubmit called, paymentMethod:", paymentMethod, "displayItems count:", displayItems.length, "submitting:", submitting)
-
     if (displayItems.length === 0) {
-      console.error("[Checkout] displayItems is empty — cannot submit")
       setError("Your cart is empty. Please add items to your cart before placing an order.")
       setSubmitting(false)
       return
@@ -118,10 +157,14 @@ export default function CheckoutPage() {
     try {
       payload = {
         email: form.email,
-        name: form.name,
+        firstName: form.firstName,
+        lastName: form.lastName,
         phone: form.phone,
         address: form.address,
+        governorate: form.governorate,
         city: form.city,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
         notes: form.notes || undefined,
         items: displayItems.map((i) => ({
           productId: i.productId,
@@ -132,26 +175,21 @@ export default function CheckoutPage() {
         })),
         total: displaySubtotal,
       }
-      console.log("[Checkout] payload built successfully, items:", payload.items.length, "total:", payload.total)
-    } catch (payloadErr) {
-      console.error("[Checkout] ERROR building payload:", payloadErr)
+    } catch {
       setError("Failed to prepare order data. Please try again.")
       setSubmitting(false)
       return
     }
 
     if (paymentMethod === "CARD") {
-      console.log("[Checkout] Calling createCardOrder...")
       let result: Awaited<ReturnType<typeof createCardOrder>>
       try {
         result = await createCardOrder(payload)
-      } catch (callErr) {
-        console.error("[Checkout] createCardOrder threw (unhandled rejection):", callErr)
+      } catch {
         setError("An unexpected error occurred. Please try again.")
         setSubmitting(false)
         return
       }
-      console.log("[Checkout] createCardOrder returned, success:", result.success)
 
       if (!result.success) {
         setError(result.error ?? "Something went wrong")
@@ -166,12 +204,10 @@ export default function CheckoutPage() {
       return
     }
 
-    console.log("[Checkout] Calling createOrder (COD)...")
     let result: Awaited<ReturnType<typeof createOrder>>
     try {
       result = await createOrder(payload)
-    } catch (callErr) {
-      console.error("[Checkout] createOrder threw (unhandled rejection):", callErr)
+    } catch {
       setError("An unexpected error occurred. Please try again.")
       setSubmitting(false)
       return
@@ -189,7 +225,14 @@ export default function CheckoutPage() {
     router.push(`/checkout/success?orderId=${result.orderId}`)
   }
 
-  const isValid = form.name && form.email && form.phone && form.address && form.city
+  const isValid =
+    form.firstName &&
+    form.lastName &&
+    form.email &&
+    form.phone &&
+    form.address &&
+    form.governorate &&
+    form.city
 
   return (
     <div className="min-h-screen bg-background">
@@ -223,23 +266,38 @@ export default function CheckoutPage() {
                 <h2 className="text-lg font-serif text-text-primary">Customer Information</h2>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <label htmlFor="name" className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-                      Full Name *
+                  <div className="space-y-1.5">
+                    <label htmlFor="firstName" className={LABEL_CLASS}>
+                      First Name *
                     </label>
                     <input
-                      id="name"
+                      id="firstName"
                       type="text"
-                      value={form.name}
-                      onChange={(e) => updateField("name", e.target.value)}
-                      placeholder="John Doe"
+                      value={form.firstName}
+                      onChange={(e) => updateField("firstName", e.target.value)}
+                      placeholder="John"
                       required
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:border-primary transition-colors duration-300"
+                      className={INPUT_CLASS}
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="email" className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+                    <label htmlFor="lastName" className={LABEL_CLASS}>
+                      Last Name *
+                    </label>
+                    <input
+                      id="lastName"
+                      type="text"
+                      value={form.lastName}
+                      onChange={(e) => updateField("lastName", e.target.value)}
+                      placeholder="Doe"
+                      required
+                      className={INPUT_CLASS}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="email" className={LABEL_CLASS}>
                       Email *
                     </label>
                     <input
@@ -249,12 +307,12 @@ export default function CheckoutPage() {
                       onChange={(e) => updateField("email", e.target.value)}
                       placeholder="john@example.com"
                       required
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:border-primary transition-colors duration-300"
+                      className={INPUT_CLASS}
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="phone" className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+                    <label htmlFor="phone" className={LABEL_CLASS}>
                       Phone *
                     </label>
                     <input
@@ -264,7 +322,7 @@ export default function CheckoutPage() {
                       onChange={(e) => updateField("phone", e.target.value)}
                       placeholder="+20 100 000 0000"
                       required
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:border-primary transition-colors duration-300"
+                      className={INPUT_CLASS}
                     />
                   </div>
                 </div>
@@ -279,8 +337,41 @@ export default function CheckoutPage() {
                 <h2 className="text-lg font-serif text-text-primary">Shipping Address</h2>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="governorate" className={LABEL_CLASS}>
+                      Governorate *
+                    </label>
+                    <select
+                      id="governorate"
+                      value={form.governorate}
+                      onChange={(e) => updateField("governorate", e.target.value)}
+                      required
+                      className={`${INPUT_CLASS} appearance-none`}
+                    >
+                      <option value="" disabled>Select governorate</option>
+                      {GOVERNORATES.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="city" className={LABEL_CLASS}>
+                      City *
+                    </label>
+                    <input
+                      id="city"
+                      type="text"
+                      value={form.city}
+                      onChange={(e) => updateField("city", e.target.value)}
+                      placeholder="e.g. Nasr City"
+                      required
+                      className={INPUT_CLASS}
+                    />
+                  </div>
+
                   <div className="space-y-1.5 sm:col-span-2">
-                    <label htmlFor="address" className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+                    <label htmlFor="address" className={LABEL_CLASS}>
                       Street Address *
                     </label>
                     <input
@@ -290,27 +381,25 @@ export default function CheckoutPage() {
                       onChange={(e) => updateField("address", e.target.value)}
                       placeholder="123 Main Street, Apartment 4B"
                       required
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:border-primary transition-colors duration-300"
+                      className={INPUT_CLASS}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowMap(true)}
+                      className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary-light transition-colors duration-300 mt-1"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      Pick location on map
+                    </button>
+                    {latitude != null && longitude != null && (
+                      <p className="text-xs text-text-muted font-mono">
+                        {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label htmlFor="city" className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-                      City *
-                    </label>
-                    <input
-                      id="city"
-                      type="text"
-                      value={form.city}
-                      onChange={(e) => updateField("city", e.target.value)}
-                      placeholder="Cairo"
-                      required
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:border-primary transition-colors duration-300"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label htmlFor="notes" className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label htmlFor="notes" className={LABEL_CLASS}>
                       Order Notes (optional)
                     </label>
                     <input
@@ -319,7 +408,7 @@ export default function CheckoutPage() {
                       value={form.notes}
                       onChange={(e) => updateField("notes", e.target.value)}
                       placeholder="Delivery instructions, gate code, etc."
-                      className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:border-primary transition-colors duration-300"
+                      className={INPUT_CLASS}
                     />
                   </div>
                 </div>
@@ -445,6 +534,17 @@ export default function CheckoutPage() {
           </div>
         </div>
       </form>
+
+      <LocationPicker
+        isOpen={showMap}
+        onClose={() => setShowMap(false)}
+        onConfirm={(lat, lng) => {
+          setLatitude(lat)
+          setLongitude(lng)
+        }}
+        initialLat={latitude}
+        initialLng={longitude}
+      />
     </div>
   )
 }

@@ -36,7 +36,12 @@ export async function getOrders() {
       orderBy: { createdAt: "desc" },
     })
 
-    return { success: true, orders }
+    const mapped = orders.map((o) => ({
+      ...o,
+      shippingAddress: o.shippingAddress as { street?: string; city?: string; governorate?: string } | null,
+    }))
+
+    return { success: true, orders: mapped }
   } catch (error) {
     console.error("[getOrders] Error fetching orders:", error)
     const message = error instanceof Error ? error.message : String(error)

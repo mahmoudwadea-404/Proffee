@@ -92,6 +92,13 @@ model Order {
   paymobOrderId       Int?
   total               Float
   shippingAddress     Json
+  firstName           String      @default("")
+  lastName            String      @default("")
+  governorate         String      @default("")
+  city                String      @default("")
+  address             String      @default("")
+  latitude            Float?
+  longitude           Float?
   phone               String
   notes               String?
   items               OrderItem[]

@@ -4,10 +4,14 @@ import { prisma, logDatabaseInfo } from "@/lib/prisma"
 
 export type CreateOrderInput = {
   email: string
-  name: string
+  firstName: string
+  lastName: string
   phone: string
   address: string
+  governorate: string
   city: string
+  latitude?: number
+  longitude?: number
   notes?: string
   items: {
     productId: string
@@ -21,12 +25,13 @@ export type CreateOrderInput = {
 
 export async function createOrder(input: CreateOrderInput) {
   try {
+    const fullName = `${input.firstName} ${input.lastName}`
     const user = await prisma.user.upsert({
       where: { email: input.email },
-      update: { name: input.name, phone: input.phone },
+      update: { name: fullName, phone: input.phone },
       create: {
         supabaseId: `guest_${input.email}_${Date.now()}`,
-        name: input.name,
+        name: fullName,
         email: input.email,
         phone: input.phone,
         role: "CUSTOMER",
@@ -44,7 +49,15 @@ export async function createOrder(input: CreateOrderInput) {
           shippingAddress: {
             street: input.address,
             city: input.city,
+            governorate: input.governorate,
           },
+          firstName: input.firstName,
+          lastName: input.lastName,
+          governorate: input.governorate,
+          city: input.city,
+          address: input.address,
+          latitude: input.latitude ?? null,
+          longitude: input.longitude ?? null,
           phone: input.phone,
           notes: input.notes ?? null,
           items: {
@@ -102,12 +115,13 @@ export async function createCardOrder(input: CreateCardOrderInput) {
 
   try {
     console.log("[createCardOrder] Step 1: Upserting user...")
+    const fullName = `${input.firstName} ${input.lastName}`
     const user = await prisma.user.upsert({
       where: { email: input.email },
-      update: { name: input.name, phone: input.phone },
+      update: { name: fullName, phone: input.phone },
       create: {
         supabaseId: `guest_${input.email}_${Date.now()}`,
-        name: input.name,
+        name: fullName,
         email: input.email,
         phone: input.phone,
         role: "CUSTOMER",
@@ -131,7 +145,15 @@ export async function createCardOrder(input: CreateCardOrderInput) {
         shippingAddress: {
           street: input.address,
           city: input.city,
+          governorate: input.governorate,
         },
+        firstName: input.firstName,
+        lastName: input.lastName,
+        governorate: input.governorate,
+        city: input.city,
+        address: input.address,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
         phone: input.phone,
         notes: input.notes ?? null,
         items: {
@@ -209,10 +231,6 @@ export async function createCardOrder(input: CreateCardOrderInput) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"
     console.log("[createCardOrder] Step 3: Using baseUrl:", baseUrl)
 
-    const nameParts = input.name.trim().split(/\s+/)
-    const firstName = nameParts[0] || input.name
-    const lastName = nameParts.slice(1).join(" ") || "."
-
     console.log("[createCardOrder] Step 3: Calling Paymob createPaymentIntention...")
     const { createPaymentIntention, getCheckoutUrl } = await import("@/lib/paymob")
     const intention = await createPaymentIntention({
@@ -223,8 +241,8 @@ export async function createCardOrder(input: CreateCardOrderInput) {
         quantity: item.quantity,
       })),
       billingData: {
-        first_name: firstName,
-        last_name: lastName,
+        first_name: input.firstName,
+        last_name: input.lastName,
         email: input.email,
         phone_number: input.phone,
         street: input.address,
@@ -232,8 +250,8 @@ export async function createCardOrder(input: CreateCardOrderInput) {
         country: "EG",
       },
       customer: {
-        first_name: firstName,
-        last_name: lastName,
+        first_name: input.firstName,
+        last_name: input.lastName,
         email: input.email,
       },
       notificationUrl: `${baseUrl}/api/webhooks/paymob`,
