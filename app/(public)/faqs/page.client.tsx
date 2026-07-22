@@ -54,7 +54,7 @@ const faqs = [
   {
     category: "shipping",
     question: "How much does shipping cost?",
-    answer: "Shipping is calculated at checkout based on your location and order size. Orders of EGP 500 or more qualify for free standard shipping within Egypt.",
+    answer: "Shipping is a flat rate of EGP 60 for all orders within Egypt.",
   },
   {
     category: "shipping",

@@ -174,7 +174,7 @@ export default function ProductDetailPage({ product, related }: { product: Produ
 
             <div className="flex items-center gap-2 text-xs text-text-muted">
               <Leaf className="w-3.5 h-3.5" />
-              Free shipping on orders over EGP 500
+              Flat rate shipping: EGP 60
             </div>
           </motion.div>
         </div>

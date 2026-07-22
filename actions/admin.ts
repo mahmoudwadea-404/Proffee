@@ -153,3 +153,91 @@ export async function deleteProduct(id: string) {
     return { success: false, error: "Failed to delete product" }
   }
 }
+
+export type CouponInput = {
+  code: string
+  description: string
+  discountType: "PERCENTAGE" | "FIXED"
+  discountValue: number
+  maximumDiscount: number | null
+  minOrderAmount: number | null
+  maxUses: number | null
+  isActive: boolean
+  startsAt: string | null
+  expiresAt: string | null
+}
+
+export async function getCoupons() {
+  try {
+    const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: "desc" } })
+    return { success: true, coupons }
+  } catch (error) {
+    console.error("Error fetching coupons:", error)
+    return { success: false, error: "Failed to fetch coupons" }
+  }
+}
+
+export async function createCoupon(input: CouponInput) {
+  try {
+    const coupon = await prisma.coupon.create({
+      data: {
+        code: input.code.trim().toUpperCase(),
+        description: input.description,
+        discountType: input.discountType,
+        discountValue: input.discountValue,
+        maximumDiscount: input.maximumDiscount,
+        minOrderAmount: input.minOrderAmount,
+        maxUses: input.maxUses,
+        isActive: input.isActive,
+        startsAt: input.startsAt ? new Date(input.startsAt) : null,
+        expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+      },
+    })
+    return { success: true, coupon }
+  } catch (error) {
+    console.error("Error creating coupon:", error)
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.includes("Unique constraint")) {
+      return { success: false, error: "A coupon with this code already exists." }
+    }
+    return { success: false, error: "Failed to create coupon" }
+  }
+}
+
+export async function updateCoupon(id: string, input: CouponInput) {
+  try {
+    const coupon = await prisma.coupon.update({
+      where: { id },
+      data: {
+        code: input.code.trim().toUpperCase(),
+        description: input.description,
+        discountType: input.discountType,
+        discountValue: input.discountValue,
+        maximumDiscount: input.maximumDiscount,
+        minOrderAmount: input.minOrderAmount,
+        maxUses: input.maxUses,
+        isActive: input.isActive,
+        startsAt: input.startsAt ? new Date(input.startsAt) : null,
+        expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+      },
+    })
+    return { success: true, coupon }
+  } catch (error) {
+    console.error("Error updating coupon:", error)
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.includes("Unique constraint")) {
+      return { success: false, error: "A coupon with this code already exists." }
+    }
+    return { success: false, error: "Failed to update coupon" }
+  }
+}
+
+export async function deleteCoupon(id: string) {
+  try {
+    await prisma.coupon.delete({ where: { id } })
+    return { success: true }
+  } catch (error) {
+    console.error("Error deleting coupon:", error)
+    return { success: false, error: "Failed to delete coupon" }
+  }
+}

@@ -169,13 +169,7 @@ export default function CartPage() {
                 Proceed to Checkout
               </Link>
 
-              {subtotal >= 500 ? (
-                <p className="text-xs text-green-500 text-center">Your order qualifies for free shipping!</p>
-              ) : (
-                <p className="text-xs text-text-muted text-center">
-                  Add EGP {500 - subtotal} more for free shipping
-                </p>
-              )}
+              <p className="text-xs text-text-muted text-center">Shipping: EGP 60 flat rate</p>
             </motion.div>
           </div>
         </div>

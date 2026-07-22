@@ -21,6 +21,29 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+model Coupon {
+  id             String       @id @default(cuid())
+  code           String       @unique
+  description    String       @default("")
+  discountType   DiscountType
+  discountValue  Float
+  maximumDiscount Float?
+  minOrderAmount Float?
+  maxUses        Int?
+  usedCount      Int          @default(0)
+  isActive       Boolean      @default(true)
+  startsAt       DateTime?
+  expiresAt      DateTime?
+  orders         Order[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
 model User {
   id         String     @id @default(cuid())
   supabaseId String     @unique
@@ -91,6 +114,12 @@ model Order {
   paymobTransactionId String?
   paymobOrderId       Int?
   total               Float
+  subtotal            Float         @default(0)
+  shippingFee         Float         @default(60)
+  discountAmount      Float         @default(0)
+  couponId            String?
+  coupon              Coupon?       @relation(fields: [couponId], references: [id])
+  couponCode          String        @default("")
   shippingAddress     Json
   firstName           String      @default("")
   lastName            String      @default("")

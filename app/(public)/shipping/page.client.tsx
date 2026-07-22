@@ -21,8 +21,8 @@ const highlights = [
   },
   {
     icon: PackageCheck,
-    title: "Free Shipping",
-    description: "Orders of EGP 500 or more qualify for free standard shipping within Egypt. The threshold is calculated before any discounts.",
+    title: "Flat Rate Shipping",
+    description: "All orders ship for a flat rate of EGP 60 across Egypt, regardless of order size or location.",
   },
   {
     icon: ShieldCheck,

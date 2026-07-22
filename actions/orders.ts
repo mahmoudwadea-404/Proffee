@@ -1,6 +1,8 @@
 "use server"
 
 import { prisma, logDatabaseInfo } from "@/lib/prisma"
+import { validateCoupon } from "@/actions/coupons"
+import { SHIPPING_FEE } from "@/lib/constants"
 
 export type CreateOrderInput = {
   email: string
@@ -20,11 +22,34 @@ export type CreateOrderInput = {
     price: number
     weight: string | null
   }[]
+  subtotal: number
+  shippingFee?: number
+  discount?: number
+  couponId?: string
+  couponCode?: string
   total: number
 }
 
 export async function createOrder(input: CreateOrderInput) {
   try {
+    const subtotal = input.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+    const shippingFee = SHIPPING_FEE
+
+    let discountAmount = 0
+    let validatedCouponId: string | null = null
+    let validatedCouponCode = ""
+
+    if (input.couponCode) {
+      const result = await validateCoupon(input.couponCode, subtotal)
+      if (result.valid) {
+        discountAmount = result.discount
+        validatedCouponId = result.coupon.id
+        validatedCouponCode = result.coupon.code
+      }
+    }
+
+    const total = Math.max(0, subtotal + shippingFee - discountAmount)
+
     const fullName = `${input.firstName} ${input.lastName}`
     const user = await prisma.user.upsert({
       where: { email: input.email },
@@ -39,13 +64,25 @@ export async function createOrder(input: CreateOrderInput) {
     })
 
     const order = await prisma.$transaction(async (tx) => {
+      if (validatedCouponId) {
+        await tx.coupon.update({
+          where: { id: validatedCouponId },
+          data: { usedCount: { increment: 1 } },
+        })
+      }
+
       const created = await tx.order.create({
         data: {
           userId: user.id,
           status: "PENDING",
           paymentStatus: "UNPAID",
           paymentMethod: "COD",
-          total: input.total,
+          subtotal,
+          shippingFee,
+          discountAmount,
+          total,
+          couponId: validatedCouponId,
+          couponCode: validatedCouponCode,
           shippingAddress: {
             street: input.address,
             city: input.city,
@@ -107,13 +144,38 @@ export async function createCardOrder(input: CreateCardOrderInput) {
   console.log("[createCardOrder] Timestamp:", new Date().toISOString())
   console.log("[createCardOrder] Input email:", input.email)
   console.log("[createCardOrder] Input items count:", input.items.length)
-  console.log("[createCardOrder] Input total:", input.total)
 
   await logDatabaseInfo()
 
   checkEnvVars()
 
   try {
+    const subtotal = input.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+    const shippingFee = SHIPPING_FEE
+
+    let discountAmount = 0
+    let validatedCouponId: string | null = null
+    let validatedCouponCode = ""
+
+    if (input.couponCode) {
+      const result = await validateCoupon(input.couponCode, subtotal)
+      if (result.valid) {
+        discountAmount = result.discount
+        validatedCouponId = result.coupon.id
+        validatedCouponCode = result.coupon.code
+      }
+    }
+
+    const total = Math.max(0, subtotal + shippingFee - discountAmount)
+
+    console.log("[createCardOrder] Server-calculated subtotal:", subtotal)
+    console.log("[createCardOrder] Server-calculated shippingFee:", shippingFee)
+    console.log("[createCardOrder] Server-calculated discountAmount:", discountAmount)
+    console.log("[createCardOrder] Server-calculated total:", total)
+    if (validatedCouponId) {
+      console.log("[createCardOrder] Validated coupon:", validatedCouponCode, "ID:", validatedCouponId)
+    }
+
     console.log("[createCardOrder] Step 1: Upserting user...")
     const fullName = `${input.firstName} ${input.lastName}`
     const user = await prisma.user.upsert({
@@ -130,18 +192,29 @@ export async function createCardOrder(input: CreateCardOrderInput) {
     console.log("[createCardOrder] ✅ User upserted — ID:", user.id, "email:", user.email)
 
     console.log("[createCardOrder] Step 2: Creating order in $transaction...")
-    console.log("[createCardOrder] Transaction type: interactive (prisma.$transaction)")
-    console.log("[createCardOrder] Transaction will BEGIN, run callback, then COMMIT or ROLLBACK")
 
     const order = await prisma.$transaction(async (tx) => {
-      console.log("[createCardOrder]   [TX] Inside transaction callback — BEGIN assumed")
+      console.log("[createCardOrder]   [TX] Inside transaction callback")
+
+      if (validatedCouponId) {
+        await tx.coupon.update({
+          where: { id: validatedCouponId },
+          data: { usedCount: { increment: 1 } },
+        })
+        console.log("[createCardOrder]   [TX] Incremented coupon usedCount for:", validatedCouponCode)
+      }
 
       const orderData = {
         userId: user.id,
         status: "PENDING" as const,
         paymentStatus: "PENDING",
         paymentMethod: "CARD",
-        total: input.total,
+        subtotal,
+        shippingFee,
+        discountAmount,
+        total,
+        couponId: validatedCouponId,
+        couponCode: validatedCouponCode,
         shippingAddress: {
           street: input.address,
           city: input.city,
@@ -166,17 +239,7 @@ export async function createCardOrder(input: CreateCardOrderInput) {
         },
       }
 
-      console.log("[createCardOrder]   [TX] Calling tx.order.create with data:")
-      console.log("[createCardOrder]     userId:", orderData.userId)
-      console.log("[createCardOrder]     status:", orderData.status)
-      console.log("[createCardOrder]     paymentStatus:", orderData.paymentStatus)
-      console.log("[createCardOrder]     paymentMethod:", orderData.paymentMethod)
-      console.log("[createCardOrder]     total:", orderData.total)
-      console.log("[createCardOrder]     phone:", orderData.phone)
-      console.log("[createCardOrder]     items to create:", orderData.items.create.length)
-      for (const item of orderData.items.create) {
-        console.log("[createCardOrder]       - productId:", item.productId, "qty:", item.quantity, "price:", item.price)
-      }
+      console.log("[createCardOrder]   [TX] Order total:", orderData.total, "subtotal:", orderData.subtotal, "shipping:", orderData.shippingFee, "discount:", orderData.discountAmount)
 
       const created = await tx.order.create({
         data: orderData,
@@ -184,18 +247,12 @@ export async function createCardOrder(input: CreateCardOrderInput) {
       })
 
       console.log("[createCardOrder]   [TX] tx.order.create returned — Order ID:", created.id)
-      console.log("[createCardOrder]   [TX] Order items created:", created.items.length)
-      console.log("[createCardOrder]   [TX] About to RETURN from callback (triggers COMMIT)")
-
       return created
     })
 
     console.log("[createCardOrder] ✅ Transaction COMPLETED — Order ID:", order.id)
-    console.log("[createCardOrder] Order createdAt:", order.createdAt)
-    console.log("[createCardOrder] Order paymentStatus:", order.paymentStatus)
 
-    // === CRITICAL VERIFICATION: Does the order actually exist in the DB right now? ===
-    console.log("[createCardOrder] Step 2b: VERIFYING order exists in DB immediately after transaction...")
+    console.log("[createCardOrder] Step 2b: VERIFYING order exists in DB...")
     const verification = await prisma.order.findUnique({
       where: { id: order.id },
       select: {
@@ -203,6 +260,10 @@ export async function createCardOrder(input: CreateCardOrderInput) {
         paymentStatus: true,
         paymentMethod: true,
         total: true,
+        subtotal: true,
+        shippingFee: true,
+        discountAmount: true,
+        couponCode: true,
         paymobOrderId: true,
         paymobTransactionId: true,
         userId: true,
@@ -211,30 +272,22 @@ export async function createCardOrder(input: CreateCardOrderInput) {
     })
 
     if (!verification) {
-      console.error("[createCardOrder] ❌❌❌ CRITICAL: Order does NOT exist in DB after transaction commit!")
-      console.error("[createCardOrder] Order ID that was returned:", order.id)
-      console.error("[createCardOrder] This means the transaction committed but the data is not visible.")
-      console.error("[createCardOrder] Possible causes: connection pooler issue, RLS blocking reads, wrong database")
+      console.error("[createCardOrder] ❌ CRITICAL: Order does NOT exist in DB after transaction commit!")
       throw new Error(
-        `Order ${order.id} was created in a transaction but does not exist in the database afterwards. ` +
-        `This indicates a database connection or RLS issue.`
+        `Order ${order.id} was created in a transaction but does not exist in the database afterwards.`
       )
     } else {
-      console.log("[createCardOrder] ✅ Post-transaction verification PASSED — order exists in DB")
-      console.log("[createCardOrder]   Verified order:", JSON.stringify(verification, null, 2))
+      console.log("[createCardOrder] ✅ Post-transaction verification PASSED")
     }
 
-    // Count total orders to confirm we can see data
     const orderCount = await prisma.order.count()
     console.log("[createCardOrder] Total orders in database:", orderCount)
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"
-    console.log("[createCardOrder] Step 3: Using baseUrl:", baseUrl)
-
     console.log("[createCardOrder] Step 3: Calling Paymob createPaymentIntention...")
     const { createPaymentIntention, getCheckoutUrl } = await import("@/lib/paymob")
     const intention = await createPaymentIntention({
-      amount: Math.round(input.total * 100),
+      amount: Math.round(total * 100),
       items: input.items.map((item) => ({
         name: item.name,
         amount: Math.round(item.price * 100),
@@ -258,11 +311,9 @@ export async function createCardOrder(input: CreateCardOrderInput) {
       redirectionUrl: `${baseUrl}/checkout/payment-result?orderId=${order.id}`,
       specialReference: order.id,
     })
-    console.log("[createCardOrder] ✅ Paymob intention created:", intention.id, "intentionOrderId:", intention.intentionOrderId)
+    console.log("[createCardOrder] ✅ Paymob intention created:", intention.id)
 
     console.log("[createCardOrder] Step 4: Updating order with Paymob IDs...")
-    console.log("[createCardOrder]   paymobTransactionId:", intention.id)
-    console.log("[createCardOrder]   paymobOrderId:", intention.intentionOrderId)
     const updatedOrder = await prisma.order.update({
       where: { id: order.id },
       data: {
@@ -271,27 +322,16 @@ export async function createCardOrder(input: CreateCardOrderInput) {
       },
       select: { id: true, paymobTransactionId: true, paymobOrderId: true },
     })
-    console.log("[createCardOrder] ✅ Order updated with Paymob IDs:", JSON.stringify(updatedOrder))
-
-    // Second verification after update
-    console.log("[createCardOrder] Step 4b: Re-verifying order exists after update...")
-    const reVerification = await prisma.order.findUnique({
-      where: { id: order.id },
-      select: { id: true, paymentStatus: true, paymobOrderId: true },
-    })
-    console.log("[createCardOrder] Re-verification result:", reVerification ? "EXISTS" : "NOT FOUND")
+    console.log("[createCardOrder] ✅ Order updated:", JSON.stringify(updatedOrder))
 
     console.log("[createCardOrder] Step 5: Building checkout URL...")
     const checkoutUrl = getCheckoutUrl(intention.clientSecret)
     console.log("[createCardOrder] ✅ Checkout URL built successfully")
-    console.log("[createCardOrder] Redirect URL (redirectionUrl):", `${baseUrl}/checkout/payment-result?orderId=${order.id}`)
-    console.log("[createCardOrder] Notification URL (webhook):", `${baseUrl}/api/webhooks/paymob`)
 
     console.log("")
     console.log("╔══════════════════════════════════════════════════════════╗")
     console.log("║          createCardOrder — SUCCESS                      ║")
     console.log("╚══════════════════════════════════════════════════════════╝")
-    console.log("")
 
     return { success: true, checkoutUrl }
   } catch (error) {
@@ -307,7 +347,6 @@ export async function createCardOrder(input: CreateCardOrderInput) {
     } else {
       console.error("[createCardOrder] Non-Error thrown:", error)
     }
-    console.error("")
     return { success: false, error: "Failed to initiate card payment. Please try again." }
   }
 }

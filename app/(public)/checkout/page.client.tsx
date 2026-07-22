@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowLeft, CreditCard, Loader2, MapPin, Package } from "lucide-react"
+import { ArrowLeft, CreditCard, Loader2, MapPin, Package, Tag, X } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/lib/cart-context"
 import { createOrder, createCardOrder, type CreateOrderInput } from "@/actions/orders"
+import { validateCoupon } from "@/actions/coupons"
+import { SHIPPING_FEE } from "@/lib/constants"
 import LocationPicker from "@/components/checkout/LocationPicker"
 
 type CheckoutItem = {
@@ -96,8 +98,58 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [couponInput, setCouponInput] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    id: string
+    code: string
+    discountType: "PERCENTAGE" | "FIXED"
+    discountValue: number
+    maximumDiscount: number | null
+    description: string
+    discount: number
+  } | null>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [couponSuccess, setCouponSuccess] = useState<string | null>(null)
+
   const updateField = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const discountAmount = appliedCoupon?.discount ?? 0
+  const finalTotal = Math.max(0, displaySubtotal + SHIPPING_FEE - discountAmount)
+
+  const handleApplyCoupon = async () => {
+    setCouponError(null)
+    setCouponSuccess(null)
+    if (!couponInput.trim()) return
+    setCouponLoading(true)
+    const result = await validateCoupon(couponInput.trim(), displaySubtotal)
+    setCouponLoading(false)
+    if (result.valid) {
+      setAppliedCoupon({
+        id: result.coupon.id,
+        code: result.coupon.code,
+        discountType: result.coupon.discountType,
+        discountValue: result.coupon.discountValue,
+        maximumDiscount: result.coupon.maximumDiscount,
+        description: result.coupon.description,
+        discount: result.discount,
+      })
+      setCouponSuccess(result.message)
+      setCouponError(null)
+    } else {
+      setAppliedCoupon(null)
+      setCouponError(result.message)
+      setCouponSuccess(null)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponInput("")
+    setCouponError(null)
+    setCouponSuccess(null)
   }
 
   if (!isBuyNow && cartItems.length === 0) {
@@ -173,7 +225,12 @@ export default function CheckoutPage() {
           price: i.price,
           weight: i.weightLabel,
         })),
-        total: displaySubtotal,
+        subtotal: displaySubtotal,
+        shippingFee: SHIPPING_FEE,
+        discount: discountAmount,
+        couponId: appliedCoupon?.id,
+        couponCode: appliedCoupon?.code,
+        total: finalTotal,
       }
     } catch {
       setError("Failed to prepare order data. Please try again.")
@@ -465,7 +522,7 @@ export default function CheckoutPage() {
               >
                 <h2 className="text-lg font-serif text-text-primary">Order Summary</h2>
 
-                <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
                   {displayItems.map((item) => (
                     <div key={`${item.productId}-${item.weight}`} className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#3A2A1A] to-[#1A100A] flex items-center justify-center shrink-0 border border-border overflow-hidden">
@@ -487,20 +544,74 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex items-center justify-between text-text-secondary">
                     <span>Shipping</span>
-                    <span className={displaySubtotal >= 500 ? "text-green-500" : "text-text-muted"}>
-                      {displaySubtotal >= 500 ? "Free" : "Calculated later"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-text-secondary">
-                    <span>Payment</span>
-                    <span className="text-text-primary">{paymentMethod === "CARD" ? "Card Payment" : "Cash on Delivery"}</span>
+                    <span className="text-text-primary font-medium tabular-nums">EGP {SHIPPING_FEE}</span>
                   </div>
                 </div>
 
+                <div className="border-t border-border pt-3">
+                  {!appliedCoupon ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                          <input
+                            type="text"
+                            value={couponInput}
+                            onChange={(e) => setCouponInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleApplyCoupon())}
+                            placeholder="Coupon code"
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-background border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:border-primary transition-colors duration-300"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          disabled={couponLoading || !couponInput.trim()}
+                          className="px-4 py-2.5 rounded-xl bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shrink-0"
+                        >
+                          {couponLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
+                        </button>
+                      </div>
+                      {couponError && (
+                        <p className="text-xs text-red-500">{couponError}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-4 h-4 text-green-500" />
+                          <span className="text-sm font-medium text-green-500">{couponSuccess}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoupon}
+                          className="p-1 rounded-lg text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-all duration-300"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-text-secondary font-mono text-xs">{couponInput.trim().toUpperCase()}</span>
+                        <span className="text-text-secondary">
+                          {couponInput.trim().toUpperCase()} applied
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {discountAmount > 0 && (
+                  <div className="flex items-center justify-between text-sm text-green-500">
+                    <span>Discount</span>
+                    <span className="font-medium tabular-nums">- EGP {discountAmount}</span>
+                  </div>
+                )}
+
                 <div className="border-t border-border pt-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-base font-semibold text-text-primary">Total</span>
-                    <span className="text-2xl font-bold text-primary font-sans tabular-nums">EGP {displaySubtotal}</span>
+                    <span className="text-base font-semibold text-text-primary">Grand Total</span>
+                    <span className="text-2xl font-bold text-primary font-sans tabular-nums">EGP {finalTotal}</span>
                   </div>
                 </div>
 

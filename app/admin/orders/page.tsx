@@ -16,6 +16,10 @@ type Order = {
   status: string
   paymentMethod: string | null
   total: number
+  subtotal: number
+  shippingFee: number
+  discountAmount: number
+  couponCode: string
   createdAt: Date
   firstName: string
   lastName: string
@@ -179,8 +183,16 @@ export default function AdminOrdersPage() {
                           <p className="text-text-muted text-xs truncate max-w-[160px]" title={order.address}>{order.address}</p>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-text-primary font-sans tabular-nums text-right font-semibold">
-                        EGP {order.total}
+                      <td className="px-5 py-4 text-right font-sans tabular-nums">
+                        <div className="space-y-0.5">
+                          {order.discountAmount > 0 && (
+                            <p className="text-xs text-green-500">- EGP {order.discountAmount}</p>
+                          )}
+                          {order.couponCode && (
+                            <p className="text-xs text-text-muted font-mono">{order.couponCode}</p>
+                          )}
+                          <p className="text-text-primary font-semibold">EGP {order.total}</p>
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         <span className="text-xs text-text-secondary">{order.paymentMethod ?? "—"}</span>
