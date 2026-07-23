@@ -59,7 +59,7 @@ const LABEL_CLASS = "text-xs font-medium text-text-secondary uppercase tracking-
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { items: cartItems, itemCount: cartItemCount, subtotal: cartSubtotal, clearCart } = useCart()
+  const { items: cartItems, itemCount: cartItemCount, subtotal: cartSubtotal } = useCart()
 
   const [buyNowItem, setBuyNowItem] = useState<CheckoutItem | null>(null)
   const isBuyNow = buyNowItem !== null
@@ -254,9 +254,6 @@ export default function CheckoutPage() {
         return
       }
 
-      if (!isBuyNow) {
-        clearCart()
-      }
       window.location.href = result.checkoutUrl!
       return
     }
@@ -276,9 +273,6 @@ export default function CheckoutPage() {
       return
     }
 
-    if (!isBuyNow) {
-      clearCart()
-    }
     router.push(`/checkout/success?orderId=${result.orderId}`)
   }
 

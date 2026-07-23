@@ -64,6 +64,32 @@ export async function createOrder(input: CreateOrderInput) {
     })
 
     const order = await prisma.$transaction(async (tx) => {
+      const productIds = input.items.map((i) => i.productId)
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, stock: true, name: true },
+      })
+      const productMap = new Map(products.map((p) => [p.id, p]))
+
+      for (const item of input.items) {
+        const product = productMap.get(item.productId)
+        if (!product) {
+          throw new Error(`Product not found: ${item.productId}`)
+        }
+        if (product.stock < item.quantity) {
+          throw new Error(
+            `Insufficient stock for "${product.name}": requested ${item.quantity}, available ${product.stock}.`
+          )
+        }
+      }
+
+      for (const item of input.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { decrement: item.quantity } },
+        })
+      }
+
       if (validatedCouponId) {
         await tx.coupon.update({
           where: { id: validatedCouponId },
@@ -195,14 +221,6 @@ export async function createCardOrder(input: CreateCardOrderInput) {
 
     const order = await prisma.$transaction(async (tx) => {
       console.log("[createCardOrder]   [TX] Inside transaction callback")
-
-      if (validatedCouponId) {
-        await tx.coupon.update({
-          where: { id: validatedCouponId },
-          data: { usedCount: { increment: 1 } },
-        })
-        console.log("[createCardOrder]   [TX] Incremented coupon usedCount for:", validatedCouponCode)
-      }
 
       const orderData = {
         userId: user.id,
