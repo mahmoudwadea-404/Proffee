@@ -3,15 +3,18 @@ import { Playfair_Display, Inter, Great_Vibes } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "sonner"
 import { CartProvider } from "@/lib/cart-context"
+import { RecentlyViewedProvider } from "@/lib/recently-viewed-context"
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
+  weight: ["400", "700"],
   variable: "--font-playfair",
   display: "swap",
 })
 
 const inter = Inter({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-inter",
   display: "swap",
 })
@@ -41,7 +44,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-text-primary">
         <CartProvider>
-          {children}
+          <RecentlyViewedProvider>
+            {children}
+          </RecentlyViewedProvider>
           <Toaster theme="dark" position="top-center" richColors />
         </CartProvider>
       </body>

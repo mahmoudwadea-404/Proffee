@@ -1,22 +1,54 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { motion } from "framer-motion"
-import { ShoppingCart, Check, ArrowLeft, Leaf, MapPin, Thermometer, Zap } from "lucide-react"
+import { ShoppingCart, Check, ArrowLeft, Leaf, MapPin, Thermometer, Zap, Heart, Clock } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 import type { Product } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
+import { useRecentlyViewed } from "@/lib/recently-viewed-context"
+import { toggleWishlist, getWishlistIds } from "@/actions/wishlist"
+import { getPrismaUserId } from "@/actions/auth"
 
 export default function ProductDetailPage({ product, related }: { product: Product; related: Product[] }) {
   const router = useRouter()
   const { addItem } = useCart()
+  const { addView } = useRecentlyViewed()
 
   const [selectedWeight, setSelectedWeight] = useState(0)
   const [addedToCart, setAddedToCart] = useState(false)
+  const [inWishlist, setInWishlist] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   const weight = product.weightOptions[selectedWeight]
   const displayPrice = weight?.price ?? product.price
+
+  useEffect(() => {
+    addView({
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      image: product.image,
+      price: product.price,
+      roastLevel: product.roastLevel,
+    })
+
+    const checkWishlist = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const prismaId = await getPrismaUserId(user.id)
+      if (!prismaId) return
+      setUserId(prismaId)
+      const result = await getWishlistIds(prismaId)
+      if (result.success) {
+        setInWishlist(result.ids.includes(product.id))
+      }
+    }
+    checkWishlist()
+  }, [product, addView])
 
   const handleAddToCart = () => {
     addItem({
@@ -30,6 +62,17 @@ export default function ProductDetailPage({ product, related }: { product: Produ
     })
     setAddedToCart(true)
     setTimeout(() => setAddedToCart(false), 2000)
+  }
+
+  const handleToggleWishlist = async () => {
+    if (!userId) {
+      router.push("/login")
+      return
+    }
+    const result = await toggleWishlist(userId, product.id)
+    if (result.success) {
+      setInWishlist(result.added ?? false)
+    }
   }
 
   const handleBuyNow = useCallback(() => {
@@ -169,6 +212,17 @@ export default function ProductDetailPage({ product, related }: { product: Produ
                   <Zap className="w-5 h-5" />
                   Buy Now
                 </button>
+                <button
+                  onClick={handleToggleWishlist}
+                  className={`p-4 rounded-xl border transition-all duration-300 ${
+                    inWishlist
+                      ? "bg-red-500/10 border-red-500/30 text-red-500"
+                      : "border-border text-text-muted hover:text-red-500 hover:border-red-500/30"
+                  }`}
+                  title={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
+                >
+                  <Heart className={`w-5 h-5 ${inWishlist ? "fill-current" : ""}`} />
+                </button>
               </div>
             </div>
 
@@ -224,7 +278,54 @@ export default function ProductDetailPage({ product, related }: { product: Produ
             </div>
           </motion.section>
         )}
+
+        <RecentlyViewedSection currentId={product.id} />
       </div>
     </div>
+  )
+}
+
+function RecentlyViewedSection({ currentId }: { currentId: string }) {
+  const { items } = useRecentlyViewed()
+  const filtered = items.filter((i) => i.id !== currentId).slice(0, 4)
+
+  if (filtered.length === 0) return null
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.4 }}
+      className="mt-16 pt-12 border-t border-border"
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <Clock className="w-5 h-5 text-primary" />
+        <p className="text-3xl text-primary font-script">Recently Viewed</p>
+      </div>
+      <h2 className="text-2xl md:text-3xl font-serif text-text-primary mb-8">Browsing History</h2>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {filtered.map((item, i) => (
+          <motion.div
+            key={item.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: i * 0.05 }}
+          >
+            <Link href={`/products/${item.slug}`} className="group block">
+              <div className="rounded-2xl border border-border bg-surface overflow-hidden hover:border-primary/30 transition-all duration-500">
+                <div className="aspect-[4/3] bg-gradient-to-br from-[#3A2A1A] to-[#1A100A] overflow-hidden">
+                  <img src={item.image} alt={item.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <div className="p-3 space-y-1">
+                  <h3 className="font-serif text-sm text-text-primary group-hover:text-primary transition-colors line-clamp-1">{item.name}</h3>
+                  <p className="text-sm font-semibold text-primary font-sans">EGP {item.price}</p>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        ))}
+      </div>
+    </motion.section>
   )
 }

@@ -1,8 +1,10 @@
 "use server"
 
-import { prisma, logDatabaseInfo } from "@/lib/prisma"
+import { prisma, atomicDecrementStock } from "@/lib/prisma"
 import { validateCoupon } from "@/actions/coupons"
 import { SHIPPING_FEE } from "@/lib/constants"
+import { requireUser, requireAdmin, type AuthUser } from "@/lib/auth"
+import { rateLimit } from "@/lib/rate-limit"
 
 export type CreateOrderInput = {
   email: string
@@ -32,7 +34,33 @@ export type CreateOrderInput = {
 
 export async function createOrder(input: CreateOrderInput) {
   try {
-    const subtotal = input.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+    if (!rateLimit(`checkout:${input.email}`, 5, 60_000)) {
+      return { success: false, error: "Too many orders. Please try again later." }
+    }
+
+    if (input.items.length === 0) {
+      return { success: false, error: "Your cart is empty. Please add items before placing an order." }
+    }
+
+    // Server-side price verification — ignore client-supplied prices
+    const productIds = input.items.map((i) => i.productId)
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, price: true, weightOptions: true },
+    })
+    const productMap = new Map(products.map((p) => [p.id, p]))
+
+    const verifiedItems = input.items.map((item) => {
+      const product = productMap.get(item.productId)
+      if (!product) throw new Error(`Product not found: ${item.productId}`)
+      const opts = product.weightOptions as { label: string; grams: number; price: number }[]
+      const weightOpt = item.weight
+        ? opts.find((o) => String(o.grams) === item.weight || o.label === item.weight)
+        : null
+      return { ...item, price: weightOpt?.price ?? product.price }
+    })
+
+    const subtotal = verifiedItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
     const shippingFee = SHIPPING_FEE
 
     let discountAmount = 0
@@ -45,6 +73,8 @@ export async function createOrder(input: CreateOrderInput) {
         discountAmount = result.discount
         validatedCouponId = result.coupon.id
         validatedCouponCode = result.coupon.code
+      } else {
+        return { success: false, error: `Coupon is no longer valid: ${result.message}` }
       }
     }
 
@@ -64,15 +94,14 @@ export async function createOrder(input: CreateOrderInput) {
     })
 
     const order = await prisma.$transaction(async (tx) => {
-      const productIds = input.items.map((i) => i.productId)
-      const products = await tx.product.findMany({
+      const txProducts = await tx.product.findMany({
         where: { id: { in: productIds } },
         select: { id: true, stock: true, name: true },
       })
-      const productMap = new Map(products.map((p) => [p.id, p]))
+      const txProductMap = new Map(txProducts.map((p) => [p.id, p]))
 
-      for (const item of input.items) {
-        const product = productMap.get(item.productId)
+      for (const item of verifiedItems) {
+        const product = txProductMap.get(item.productId)
         if (!product) {
           throw new Error(`Product not found: ${item.productId}`)
         }
@@ -83,11 +112,14 @@ export async function createOrder(input: CreateOrderInput) {
         }
       }
 
-      for (const item of input.items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
-        })
+      for (const item of verifiedItems) {
+        const decremented = await atomicDecrementStock(tx, item.productId, item.quantity)
+        if (!decremented) {
+          const product = txProductMap.get(item.productId)!
+          throw new Error(
+            `Insufficient stock for "${product.name}": requested ${item.quantity}, available ${product.stock}.`
+          )
+        }
       }
 
       if (validatedCouponId) {
@@ -124,7 +156,7 @@ export async function createOrder(input: CreateOrderInput) {
           phone: input.phone,
           notes: input.notes ?? null,
           items: {
-            create: input.items.map((item) => ({
+            create: verifiedItems.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
               price: item.price,
@@ -132,15 +164,35 @@ export async function createOrder(input: CreateOrderInput) {
             })),
           },
         },
-        include: { items: true },
+        select: { id: true },
       })
 
       return created
     })
 
+    await prisma.orderStatusLog.create({
+      data: {
+        orderId: order.id,
+        fromStatus: null,
+        toStatus: "PENDING",
+        fromPayment: null,
+        toPayment: "UNPAID",
+        note: "Order created (COD)",
+      },
+    })
+
+    console.log("[AUDIT] Order Created — orderId:", order.id)
     return { success: true, orderId: order.id }
   } catch (error) {
-    console.error("Error creating order:", error)
+    console.error("[AUDIT] Order Creation Failed")
+    if (error instanceof Error) {
+      if (error.message.startsWith("Insufficient stock")) {
+        return { success: false, error: error.message }
+      }
+      if (error.message.startsWith("Product not found")) {
+        return { success: false, error: "One or more products in your cart are no longer available." }
+      }
+    }
     return { success: false, error: "Failed to place your order. Please try again." }
   }
 }
@@ -150,33 +202,50 @@ export type CreateCardOrderInput = CreateOrderInput
 function checkEnvVars() {
   const required = ["PAYMOB_SECRET_KEY", "PAYMOB_INTEGRATION_ID", "PAYMOB_HMAC_SECRET", "PAYMOB_PUBLIC_KEY"] as const
   const missing: string[] = []
-  const present: string[] = []
   for (const key of required) {
-    if (process.env[key]) present.push(key)
-    else missing.push(key)
+    if (!process.env[key]) missing.push(key)
   }
   if (missing.length > 0) {
     console.error("[createCardOrder] MISSING env vars:", missing.join(", "))
   }
-  console.log(`[createCardOrder] Env vars present (${present.length}/${required.length}):`, present.join(", "))
-  console.log(`[createCardOrder] NEXT_PUBLIC_BASE_URL:`, process.env.NEXT_PUBLIC_BASE_URL ? `"${process.env.NEXT_PUBLIC_BASE_URL}"` : "NOT SET (will use localhost fallback)")
 }
 
 export async function createCardOrder(input: CreateCardOrderInput) {
-  console.log("")
-  console.log("╔══════════════════════════════════════════════════════════╗")
-  console.log("║          createCardOrder — START                        ║")
-  console.log("╚══════════════════════════════════════════════════════════╝")
-  console.log("[createCardOrder] Timestamp:", new Date().toISOString())
-  console.log("[createCardOrder] Input email:", input.email)
-  console.log("[createCardOrder] Input items count:", input.items.length)
-
-  await logDatabaseInfo()
-
-  checkEnvVars()
-
   try {
-    const subtotal = input.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+    if (!rateLimit(`checkout:${input.email}`, 5, 60_000)) {
+      return { success: false, error: "Too many orders. Please try again later." }
+    }
+
+    if (input.items.length === 0) {
+      return { success: false, error: "Your cart is empty. Please add items before placing an order." }
+    }
+
+    const hasMissingEnv = !process.env.PAYMOB_SECRET_KEY || !process.env.PAYMOB_INTEGRATION_ID
+    if (hasMissingEnv) {
+      return { success: false, error: "Payment gateway is not configured. Please contact support." }
+    }
+
+    checkEnvVars()
+
+    // Server-side price verification — ignore client-supplied prices
+    const productIds = input.items.map((i) => i.productId)
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, price: true, weightOptions: true },
+    })
+    const productMap = new Map(products.map((p) => [p.id, p]))
+
+    const verifiedItems = input.items.map((item) => {
+      const product = productMap.get(item.productId)
+      if (!product) throw new Error(`Product not found: ${item.productId}`)
+      const opts = product.weightOptions as { label: string; grams: number; price: number }[]
+      const weightOpt = item.weight
+        ? opts.find((o) => String(o.grams) === item.weight || o.label === item.weight)
+        : null
+      return { ...item, price: weightOpt?.price ?? product.price }
+    })
+
+    const subtotal = verifiedItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
     const shippingFee = SHIPPING_FEE
 
     let discountAmount = 0
@@ -189,20 +258,13 @@ export async function createCardOrder(input: CreateCardOrderInput) {
         discountAmount = result.discount
         validatedCouponId = result.coupon.id
         validatedCouponCode = result.coupon.code
+      } else {
+        return { success: false, error: `Coupon is no longer valid: ${result.message}` }
       }
     }
 
     const total = Math.max(0, subtotal + shippingFee - discountAmount)
 
-    console.log("[createCardOrder] Server-calculated subtotal:", subtotal)
-    console.log("[createCardOrder] Server-calculated shippingFee:", shippingFee)
-    console.log("[createCardOrder] Server-calculated discountAmount:", discountAmount)
-    console.log("[createCardOrder] Server-calculated total:", total)
-    if (validatedCouponId) {
-      console.log("[createCardOrder] Validated coupon:", validatedCouponCode, "ID:", validatedCouponId)
-    }
-
-    console.log("[createCardOrder] Step 1: Upserting user...")
     const fullName = `${input.firstName} ${input.lastName}`
     const user = await prisma.user.upsert({
       where: { email: input.email },
@@ -215,98 +277,65 @@ export async function createCardOrder(input: CreateCardOrderInput) {
         role: "CUSTOMER",
       },
     })
-    console.log("[createCardOrder] ✅ User upserted — ID:", user.id, "email:", user.email)
-
-    console.log("[createCardOrder] Step 2: Creating order in $transaction...")
 
     const order = await prisma.$transaction(async (tx) => {
-      console.log("[createCardOrder]   [TX] Inside transaction callback")
-
-      const orderData = {
-        userId: user.id,
-        status: "PENDING" as const,
-        paymentStatus: "PENDING",
-        paymentMethod: "CARD",
-        subtotal,
-        shippingFee,
-        discountAmount,
-        total,
-        couponId: validatedCouponId,
-        couponCode: validatedCouponCode,
-        shippingAddress: {
-          street: input.address,
-          city: input.city,
-          governorate: input.governorate,
-        },
-        firstName: input.firstName,
-        lastName: input.lastName,
-        governorate: input.governorate,
-        city: input.city,
-        address: input.address,
-        latitude: input.latitude ?? null,
-        longitude: input.longitude ?? null,
-        phone: input.phone,
-        notes: input.notes ?? null,
-        items: {
-          create: input.items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-            weight: item.weight,
-          })),
-        },
-      }
-
-      console.log("[createCardOrder]   [TX] Order total:", orderData.total, "subtotal:", orderData.subtotal, "shipping:", orderData.shippingFee, "discount:", orderData.discountAmount)
-
       const created = await tx.order.create({
-        data: orderData,
-        include: { items: true },
+        data: {
+          userId: user.id,
+          status: "PENDING" as const,
+          paymentStatus: "PENDING",
+          paymentMethod: "CARD",
+          subtotal,
+          shippingFee,
+          discountAmount,
+          total,
+          couponId: validatedCouponId,
+          couponCode: validatedCouponCode,
+          shippingAddress: {
+            street: input.address,
+            city: input.city,
+            governorate: input.governorate,
+          },
+          firstName: input.firstName,
+          lastName: input.lastName,
+          governorate: input.governorate,
+          city: input.city,
+          address: input.address,
+          latitude: input.latitude ?? null,
+          longitude: input.longitude ?? null,
+          phone: input.phone,
+          notes: input.notes ?? null,
+          items: {
+            create: verifiedItems.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+              weight: item.weight,
+            })),
+          },
+        },
+        select: { id: true },
       })
 
-      console.log("[createCardOrder]   [TX] tx.order.create returned — Order ID:", created.id)
       return created
     })
 
-    console.log("[createCardOrder] ✅ Transaction COMPLETED — Order ID:", order.id)
-
-    console.log("[createCardOrder] Step 2b: VERIFYING order exists in DB...")
-    const verification = await prisma.order.findUnique({
-      where: { id: order.id },
-      select: {
-        id: true,
-        paymentStatus: true,
-        paymentMethod: true,
-        total: true,
-        subtotal: true,
-        shippingFee: true,
-        discountAmount: true,
-        couponCode: true,
-        paymobOrderId: true,
-        paymobTransactionId: true,
-        userId: true,
-        createdAt: true,
+    await prisma.orderStatusLog.create({
+      data: {
+        orderId: order.id,
+        fromStatus: null,
+        toStatus: "PENDING",
+        fromPayment: null,
+        toPayment: "PENDING",
+        note: "Order created (CARD)",
       },
     })
 
-    if (!verification) {
-      console.error("[createCardOrder] ❌ CRITICAL: Order does NOT exist in DB after transaction commit!")
-      throw new Error(
-        `Order ${order.id} was created in a transaction but does not exist in the database afterwards.`
-      )
-    } else {
-      console.log("[createCardOrder] ✅ Post-transaction verification PASSED")
-    }
-
-    const orderCount = await prisma.order.count()
-    console.log("[createCardOrder] Total orders in database:", orderCount)
-
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"
-    console.log("[createCardOrder] Step 3: Calling Paymob createPaymentIntention...")
     const { createPaymentIntention, getCheckoutUrl } = await import("@/lib/paymob")
     const intention = await createPaymentIntention({
       amount: Math.round(total * 100),
-      items: input.items.map((item) => ({
+      items: verifiedItems.map((item) => ({
         name: item.name,
         amount: Math.round(item.price * 100),
         quantity: item.quantity,
@@ -329,41 +358,34 @@ export async function createCardOrder(input: CreateCardOrderInput) {
       redirectionUrl: `${baseUrl}/checkout/payment-result?orderId=${order.id}`,
       specialReference: order.id,
     })
-    console.log("[createCardOrder] ✅ Paymob intention created:", intention.id)
 
-    console.log("[createCardOrder] Step 4: Updating order with Paymob IDs...")
-    const updatedOrder = await prisma.order.update({
+    await prisma.order.update({
       where: { id: order.id },
       data: {
         paymobTransactionId: intention.id,
         paymobOrderId: intention.intentionOrderId,
       },
-      select: { id: true, paymobTransactionId: true, paymobOrderId: true },
+      select: { id: true },
     })
-    console.log("[createCardOrder] ✅ Order updated:", JSON.stringify(updatedOrder))
 
-    console.log("[createCardOrder] Step 5: Building checkout URL...")
     const checkoutUrl = getCheckoutUrl(intention.clientSecret)
-    console.log("[createCardOrder] ✅ Checkout URL built successfully")
-
-    console.log("")
-    console.log("╔══════════════════════════════════════════════════════════╗")
-    console.log("║          createCardOrder — SUCCESS                      ║")
-    console.log("╚══════════════════════════════════════════════════════════╝")
-
+    console.log("[AUDIT] Payment Initiated — orderId:", order.id)
     return { success: true, checkoutUrl }
   } catch (error) {
-    console.error("")
-    console.error("╔══════════════════════════════════════════════════════════╗")
-    console.error("║          createCardOrder — ERROR                        ║")
-    console.error("╚══════════════════════════════════════════════════════════╝")
+    console.error("[createCardOrder] Error:", error instanceof Error ? error.message : "unknown")
     if (error instanceof Error) {
-      console.error("[createCardOrder] Message:", error.message)
-      console.error("[createCardOrder] Name:", error.name)
-      console.error("[createCardOrder] Stack:", error.stack)
-      if ("cause" in error) console.error("[createCardOrder] Cause:", (error as any).cause)
-    } else {
-      console.error("[createCardOrder] Non-Error thrown:", error)
+      if (error.message.includes("PAYMOB_SECRET_KEY")) {
+        return { success: false, error: "Invalid payment configuration. Please contact support." }
+      }
+      if (error.message.includes("Paymob intention creation failed")) {
+        return { success: false, error: "Unable to contact payment gateway. Please try again." }
+      }
+      if (error.message.includes("fetch")) {
+        return { success: false, error: "Payment gateway temporarily unavailable. Please try again." }
+      }
+      if (error.message.startsWith("Insufficient stock")) {
+        return { success: false, error: error.message }
+      }
     }
     return { success: false, error: "Failed to initiate card payment. Please try again." }
   }
@@ -404,19 +426,15 @@ export type HandlePaymentRedirectInput = {
  * before writing and only upgrades from PENDING/UNPAID/FAILED → PAID or FAILED.
  */
 export async function handlePaymentRedirect(input: HandlePaymentRedirectInput) {
-  console.log("[handlePaymentRedirect] Called for orderId:", input.orderId, "success:", input.success)
   try {
     const { verifyRedirectHmac } = await import("@/lib/paymob")
 
     if (!input.hmac || !input.id || !input.order_id) {
-      console.warn("[handlePaymentRedirect] Missing required Paymob redirect params")
       return { success: false, error: "Missing Paymob parameters" }
     }
 
     const hmacValid = verifyRedirectHmac(input, input.hmac)
-    console.log("[handlePaymentRedirect] HMAC valid:", hmacValid)
     if (!hmacValid) {
-      console.error("[handlePaymentRedirect] HMAC verification failed — rejecting")
       return { success: false, error: "Invalid HMAC" }
     }
 
@@ -425,39 +443,251 @@ export async function handlePaymentRedirect(input: HandlePaymentRedirectInput) {
       select: {
         id: true,
         paymentStatus: true,
-        paymobOrderId: true,
       },
     })
 
     if (!order) {
-      console.warn("[handlePaymentRedirect] Order not found:", input.orderId)
       return { success: false, error: "Order not found" }
     }
 
-    console.log("[handlePaymentRedirect] Current order paymentStatus:", order.paymentStatus)
-
     if (order.paymentStatus === "PAID") {
-      console.log("[handlePaymentRedirect] Order already PAID — no change needed")
       return { success: true, paymentStatus: "PAID" }
     }
 
     const paymobSuccess = input.success === "true"
-    const newStatus = paymobSuccess ? "PAID" : "FAILED"
-    console.log("[handlePaymentRedirect] Redirect success:", paymobSuccess, "→ setting:", newStatus)
 
-    const updated = await prisma.order.update({
-      where: { id: input.orderId },
-      data: {
-        paymentStatus: newStatus,
-        paymobTransactionId: order.paymobOrderId ? undefined : input.id,
+    if (paymobSuccess) {
+      const updated = await prisma.order.updateMany({
+        where: {
+          id: input.orderId,
+          paymentStatus: { in: ["PENDING", "UNPAID"] },
+        },
+        data: {
+          paymentStatus: "PAID",
+          paymobTransactionId: input.id,
+        },
+      })
+
+      if (updated.count === 0) {
+        const current = await prisma.order.findUnique({
+          where: { id: input.orderId },
+          select: { paymentStatus: true },
+        })
+        return { success: true, paymentStatus: current?.paymentStatus ?? "PAID" }
+      }
+
+      return { success: true, paymentStatus: "PAID" }
+    } else {
+      const updated = await prisma.order.updateMany({
+        where: {
+          id: input.orderId,
+          paymentStatus: { in: ["PENDING", "UNPAID"] },
+        },
+        data: {
+          paymentStatus: "FAILED",
+          paymobTransactionId: input.id,
+        },
+      })
+
+      if (updated.count === 0) {
+        const current = await prisma.order.findUnique({
+          where: { id: input.orderId },
+          select: { paymentStatus: true },
+        })
+        return { success: true, paymentStatus: current?.paymentStatus ?? "FAILED" }
+      }
+
+      return { success: true, paymentStatus: "FAILED" }
+    }
+  } catch (error) {
+    console.error("[handlePaymentRedirect] Error:", error instanceof Error ? error.message : "unknown")
+    return { success: false, error: "Failed to process payment redirect" }
+  }
+}
+
+export type CleanupResult = { success: true; cleaned: number } | { success: false; error: string }
+
+export async function cleanupStaleCardOrders(): Promise<CleanupResult> {
+  try {
+    await requireAdmin()
+  } catch {
+    return { success: false, error: "Unauthorized" }
+  }
+
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
+
+  try {
+    const staleOrders = await prisma.order.findMany({
+      where: {
+        paymentMethod: "CARD",
+        paymentStatus: "PENDING",
+        createdAt: { lt: thirtyMinutesAgo },
       },
-      select: { id: true, paymentStatus: true },
+      select: { id: true },
     })
 
-    console.log("[handlePaymentRedirect] ✅ Order updated:", JSON.stringify(updated))
-    return { success: true, paymentStatus: updated.paymentStatus }
+    if (staleOrders.length === 0) {
+      return { success: true, cleaned: 0 }
+    }
+
+    const ids = staleOrders.map((o) => o.id)
+    const result = await prisma.order.updateMany({
+      where: { id: { in: ids } },
+      data: { paymentStatus: "FAILED", status: "CANCELLED" },
+    })
+
+    console.log("[AUDIT] Cleanup —", result.count, "stale orders marked FAILED/CANCELLED")
+    return { success: true, cleaned: result.count }
   } catch (error) {
-    console.error("[handlePaymentRedirect] Error:", error)
-    return { success: false, error: "Failed to process payment redirect" }
+    console.error("[cleanupStaleCardOrders] Error:", error instanceof Error ? error.message : "unknown")
+    return { success: false, error: "Failed to clean up stale orders" }
+  }
+}
+
+export async function retryCardPayment(orderId: string) {
+  try {
+    const user = await requireUser()
+    const rawOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        user: { select: { email: true, id: true } },
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+            price: true,
+            weight: true,
+            product: { select: { name: true } },
+          },
+        },
+      },
+    })
+
+    if (!rawOrder) {
+      return { success: false, error: "Order not found." }
+    }
+
+    // Ownership check — only the order owner can retry
+    if (rawOrder.userId !== user.id) {
+      return { success: false, error: "Order not found." }
+    }
+
+    const order = {
+      id: rawOrder.id,
+      status: rawOrder.status,
+      paymentStatus: rawOrder.paymentStatus,
+      paymentMethod: rawOrder.paymentMethod,
+      total: rawOrder.total,
+      subtotal: rawOrder.subtotal,
+      shippingFee: rawOrder.shippingFee,
+      discountAmount: rawOrder.discountAmount,
+      couponId: rawOrder.couponId,
+      couponCode: rawOrder.couponCode,
+      firstName: rawOrder.firstName,
+      lastName: rawOrder.lastName,
+      email: rawOrder.user.email,
+      phone: rawOrder.phone,
+      address: rawOrder.address,
+      city: rawOrder.city,
+      governorate: rawOrder.governorate,
+      items: rawOrder.items,
+    }
+
+    if (order.paymentMethod !== "CARD") {
+      return { success: false, error: "Only card payment orders can be retried." }
+    }
+
+    const retryableStatuses = ["FAILED", "CANCELLED", "PENDING"]
+    if (!retryableStatuses.includes(order.paymentStatus)) {
+      return { success: false, error: `Cannot retry an order with payment status "${order.paymentStatus}".` }
+    }
+
+    const productIds = order.items.map((item) => item.productId)
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, stock: true, name: true },
+    })
+    const productMap = new Map(products.map((p) => [p.id, p]))
+
+    for (const item of order.items) {
+      const product = productMap.get(item.productId)
+      if (!product) {
+        return { success: false, error: `Product "${item.product.name}" is no longer available.` }
+      }
+      if (product.stock < item.quantity) {
+        return { success: false, error: `Stock is no longer available for "${product.name}": requested ${item.quantity}, available ${product.stock}.` }
+      }
+    }
+
+    if (order.couponCode) {
+      const result = await validateCoupon(order.couponCode, order.subtotal)
+      if (!result.valid) {
+        return { success: false, error: `Coupon is no longer valid: ${result.message}` }
+      }
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"
+    const { createPaymentIntention, getCheckoutUrl } = await import("@/lib/paymob")
+
+    const intention = await createPaymentIntention({
+      amount: Math.round(order.total * 100),
+      items: order.items.map((item) => ({
+        name: item.product.name,
+        amount: Math.round(item.price * 100),
+        quantity: item.quantity,
+      })),
+      billingData: {
+        first_name: order.firstName,
+        last_name: order.lastName,
+        email: order.email,
+        phone_number: order.phone,
+        street: order.address,
+        city: order.city,
+        country: "EG",
+      },
+      customer: {
+        first_name: order.firstName,
+        last_name: order.lastName,
+        email: order.email,
+      },
+      notificationUrl: `${baseUrl}/api/webhooks/paymob`,
+      redirectionUrl: `${baseUrl}/checkout/payment-result?orderId=${order.id}`,
+      specialReference: order.id,
+    })
+
+    const checkoutUrl = getCheckoutUrl(intention.clientSecret)
+
+    // Atomic conditional update — only proceed if order is still in a retryable state.
+    // Prevents concurrent retries from creating duplicate Paymob intentions.
+    const updated = await prisma.order.updateMany({
+      where: {
+        id: order.id,
+        paymentStatus: { in: ["FAILED", "CANCELLED", "PENDING"] },
+      },
+      data: {
+        paymentStatus: "PENDING",
+        status: "PENDING",
+        paymobTransactionId: intention.id,
+        paymobOrderId: intention.intentionOrderId,
+      },
+    })
+
+    if (updated.count === 0) {
+      return { success: false, error: "Order status changed. Please refresh and try again." }
+    }
+
+    console.log("[AUDIT] Retry Success — orderId:", order.id)
+    return { success: true, checkoutUrl }
+  } catch (error) {
+    console.error("[retryCardPayment] Error:", error instanceof Error ? error.message : "unknown")
+    if (error instanceof Error) {
+      if (error.message.includes("Paymob intention creation failed")) {
+        return { success: false, error: "Unable to contact payment gateway. Please try again." }
+      }
+      if (error.message.includes("fetch")) {
+        return { success: false, error: "Payment gateway temporarily unavailable. Please try again." }
+      }
+    }
+    return { success: false, error: "Failed to retry payment. Please try again." }
   }
 }

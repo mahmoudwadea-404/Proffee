@@ -4,13 +4,15 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Shield, LayoutDashboard, Package, ShoppingCart, Tag, LogOut } from "lucide-react"
+import { Loader2, Shield, LayoutDashboard, Package, ShoppingCart, Tag, LogOut, BarChart3, Boxes } from "lucide-react"
 
 const navItems = [
   { name: "Dashboard", path: "/admin", icon: LayoutDashboard },
   { name: "Products", path: "/admin/products", icon: Package },
   { name: "Orders", path: "/admin/orders", icon: ShoppingCart },
   { name: "Coupons", path: "/admin/coupons", icon: Tag },
+  { name: "Inventory", path: "/admin/inventory", icon: Boxes },
+  { name: "Analytics", path: "/admin/coupons/analytics", icon: BarChart3 },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

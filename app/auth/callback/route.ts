@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
       try {
         const existing = await prisma.user.findUnique({
           where: { supabaseId: data.user.id },
+          select: { id: true },
         })
 
         if (!existing) {

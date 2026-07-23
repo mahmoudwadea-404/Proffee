@@ -1,33 +1,34 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useRef, useState, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { CheckCircle, XCircle, Loader2, ArrowLeft, Package } from "lucide-react"
 import Link from "next/link"
 import { handlePaymentRedirect } from "@/actions/orders"
+import { useCart } from "@/lib/cart-context"
 
-type PaymentStatus = "loading" | "PAID" | "FAILED" | "PENDING" | "UNPAID" | "not_found"
+const MAX_RETRIES = 30
+const POLL_INTERVAL_MS = 2000
+
+type PaymentStatus = "loading" | "PAID" | "FAILED" | "PENDING" | "UNPAID" | "not_found" | "timeout"
 
 function PaymentResultContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const orderId = searchParams.get("orderId")
   const paymobSuccess = searchParams.get("success")
   const [status, setStatus] = useState<PaymentStatus>("loading")
+  const { clearCart } = useCart()
+  const cartClearedRef = useRef(false)
+  const retriesRef = useRef(0)
 
   useEffect(() => {
-    console.log("[PaymentResult] orderId from URL:", orderId)
-    console.log("[PaymentResult] paymob 'success' param:", paymobSuccess)
-
     if (!orderId) {
       console.warn("[PaymentResult] No orderId in URL, setting not_found")
       setStatus("not_found")
       return
     }
 
-    // If Paymob redirect includes success=false, immediately mark order as FAILED
-    // via server action (HMAC-verified fallback for when webhook doesn't fire).
     if (paymobSuccess === "false") {
       console.log("[PaymentResult] Paymob redirect indicates failure — calling handlePaymentRedirect")
       const failOrder = async () => {
@@ -69,33 +70,45 @@ function PaymentResultContent() {
       return
     }
 
-    const checkStatus = async () => {
+    const interval = setInterval(async () => {
       try {
-        console.log("[PaymentResult] Polling /api/orders/" + orderId + "/payment-status")
         const res = await fetch(`/api/orders/${orderId}/payment-status`)
-        console.log("[PaymentResult] Response status:", res.status)
         if (!res.ok) {
-          console.warn("[PaymentResult] Response not OK:", res.status, res.statusText)
-          const body = await res.text()
-          console.warn("[PaymentResult] Response body:", body)
-          setStatus("not_found")
+          console.warn("[PaymentResult] Response not OK:", res.status)
           return
         }
         const data = await res.json()
-        console.log("[PaymentResult] Response data:", JSON.stringify(data))
-        console.log("[PaymentResult] Setting status to:", data.paymentStatus)
-        setStatus(data.paymentStatus)
-      } catch (err) {
-        console.error("[PaymentResult] Fetch error:", err)
-        setStatus("not_found")
-      }
-    }
+        const paymentStatus: string = data.paymentStatus
+        console.log("[PaymentResult] Polled status:", paymentStatus, "(attempt", retriesRef.current + 1, "of", MAX_RETRIES, ")")
 
-    const interval = setInterval(checkStatus, 2000)
-    checkStatus()
+        if (paymentStatus === "PAID") {
+          clearInterval(interval)
+          if (!cartClearedRef.current) {
+            clearCart()
+            cartClearedRef.current = true
+          }
+          setStatus("PAID")
+          return
+        }
+
+        if (paymentStatus === "FAILED") {
+          clearInterval(interval)
+          setStatus("FAILED")
+          return
+        }
+
+        retriesRef.current += 1
+        if (retriesRef.current >= MAX_RETRIES) {
+          clearInterval(interval)
+          setStatus("timeout")
+        }
+      } catch (err) {
+        console.error("[PaymentResult] Poll error:", err)
+      }
+    }, POLL_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [orderId, paymobSuccess, searchParams])
+  }, [orderId, paymobSuccess, searchParams, clearCart])
 
   console.log("[PaymentResult] Rendering with status:", status)
 
@@ -132,6 +145,39 @@ function PaymentResultContent() {
             <ArrowLeft className="w-4 h-4" />
             Back to Home
           </Link>
+        </motion.div>
+      </div>
+    )
+  }
+
+  if (status === "timeout") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center space-y-6 max-w-md"
+        >
+          <Loader2 className="w-16 h-16 text-primary mx-auto" />
+          <h1 className="text-3xl font-serif text-text-primary">Still Confirming Payment</h1>
+          <p className="text-text-secondary text-lg leading-relaxed">
+            We&apos;re still waiting for payment confirmation. Your cart has been preserved — you can safely return later.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary-dark transition-all duration-300"
+            >
+              Refresh Page
+            </button>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-xl border border-primary/40 text-primary font-semibold text-sm hover:bg-primary/10 transition-all duration-300"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Home
+            </Link>
+          </div>
         </motion.div>
       </div>
     )

@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { SHIPPING_FEE } from "@/lib/constants"
+import { rateLimit } from "@/lib/rate-limit"
 
 export type ValidateCouponResult = {
   valid: true
@@ -26,6 +27,10 @@ export type ValidateCouponResult = {
 
 export async function validateCoupon(code: string, subtotal: number): Promise<ValidateCouponResult> {
   try {
+    if (!rateLimit(`coupon:${code.trim().toUpperCase()}`, 10, 60_000)) {
+      return { valid: false, message: "Too many attempts. Please try again later.", discount: 0, finalTotal: subtotal + SHIPPING_FEE, coupon: null }
+    }
+
     const trimmed = code.trim().toUpperCase()
     if (!trimmed) {
       return { valid: false, message: "Please enter a coupon code.", discount: 0, finalTotal: subtotal + SHIPPING_FEE, coupon: null }
@@ -33,6 +38,12 @@ export async function validateCoupon(code: string, subtotal: number): Promise<Va
 
     const coupon = await prisma.coupon.findUnique({
       where: { code: trimmed },
+      select: {
+        id: true, code: true, description: true, discountType: true,
+        discountValue: true, maximumDiscount: true, minOrderAmount: true,
+        maxUses: true, usedCount: true, isActive: true,
+        startsAt: true, expiresAt: true,
+      },
     })
 
     if (!coupon) {

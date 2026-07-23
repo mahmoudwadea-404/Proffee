@@ -12,9 +12,10 @@ export async function createUserInDB({
   email: string
 }) {
   try {
-    const existing = await prisma.user.findUnique({
-      where: { supabaseId },
-    })
+  const existing = await prisma.user.findUnique({
+    where: { supabaseId },
+    select: { id: true },
+  })
 
     if (existing) {
       return { success: true, user: existing }

@@ -1,7 +1,6 @@
-"use client"
-
 import Link from "next/link"
-import { Mail, Phone, MapPin, ArrowRight } from "lucide-react"
+import { Mail, Phone, MapPin } from "lucide-react"
+import { NewsletterForm } from "./FooterNewsletter"
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -25,26 +24,12 @@ export default function Footer() {
   return (
     <footer className="w-full bg-surface border-t border-border py-16 px-6 md:px-12 mt-auto text-text-secondary">
       <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
-        {/* Column 1: Newsletter + Socials */}
         <div className="space-y-6">
           <h3 className="text-lg font-serif font-semibold text-text-primary">Stay in the Loop</h3>
           <p className="text-sm leading-relaxed">
             Subscribe to receive exclusive offers and latest updates.
           </p>
-          <form onSubmit={(e) => e.preventDefault()} className="flex">
-            <input
-              type="email"
-              placeholder="Your email"
-              required
-              className="flex-1 px-4 py-2.5 bg-background border border-border rounded-l-lg text-text-primary text-sm focus:outline-none focus:border-primary transition-colors duration-300"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2.5 bg-primary text-white rounded-r-lg hover:bg-primary-dark transition-colors duration-300"
-            >
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
+          <NewsletterForm />
           <div className="flex items-center gap-4 pt-2">
             <a href="https://www.facebook.com/share/1TWSGoBDpk/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors duration-300" aria-label="Facebook">
               <FacebookIcon className="w-5 h-5" />
@@ -55,7 +40,6 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Column 2: Quick Links */}
         <div className="space-y-4">
           <h3 className="text-lg font-serif font-semibold text-text-primary">Quick Links</h3>
           <ul className="space-y-2.5 text-sm">
@@ -67,7 +51,6 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* Column 3: Customer Care */}
         <div className="space-y-4">
           <h3 className="text-lg font-serif font-semibold text-text-primary">Customer Care</h3>
           <ul className="space-y-2.5 text-sm">
@@ -79,7 +62,6 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* Column 4: Contact Us */}
         <div className="space-y-4">
           <h3 className="text-lg font-serif font-semibold text-text-primary">Contact Us</h3>
           <ul className="space-y-3 text-sm">

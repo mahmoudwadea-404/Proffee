@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ShoppingBag, User as UserIcon, Menu, X, LogOut, Shield } from "lucide-react"
+import { ShoppingBag, User as UserIcon, Menu, X, LogOut, Shield, Heart, Package } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import { useCart } from "@/lib/cart-context"
@@ -117,7 +117,21 @@ export default function Navbar() {
         })}
       </nav>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        <Link
+          href="/track"
+          className="p-2 text-text-secondary hover:text-primary transition-colors duration-300 hidden md:block"
+          aria-label="Track Order"
+        >
+          <Package className="w-5 h-5" />
+        </Link>
+        <Link
+          href="/wishlist"
+          className="p-2 text-text-secondary hover:text-primary transition-colors duration-300 hidden md:block"
+          aria-label="Wishlist"
+        >
+          <Heart className="w-5 h-5" />
+        </Link>
         <Link
           href="/cart"
           className="relative p-2 text-text-secondary hover:text-primary transition-colors duration-300"
@@ -228,6 +242,22 @@ export default function Navbar() {
                   </Link>
                 )
               })}
+              <Link
+                href="/wishlist"
+                onClick={() => setIsOpen(false)}
+                className="text-lg font-medium text-text-secondary pl-3 hover:text-text-primary transition-colors duration-300 flex items-center gap-2"
+              >
+                <Heart className="w-5 h-5" />
+                Wishlist
+              </Link>
+              <Link
+                href="/track"
+                onClick={() => setIsOpen(false)}
+                className="text-lg font-medium text-text-secondary pl-3 hover:text-text-primary transition-colors duration-300 flex items-center gap-2"
+              >
+                <Package className="w-5 h-5" />
+                Track Order
+              </Link>
             </nav>
 
             <div className="border-t border-border pt-6 mt-auto">

@@ -2,7 +2,14 @@ import { prisma } from "@/lib/prisma"
 import type { Product } from "@/lib/products"
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  const p = await prisma.product.findUnique({ where: { slug } })
+  const p = await prisma.product.findUnique({
+    where: { slug },
+    select: {
+      id: true, name: true, slug: true, description: true, longDescription: true,
+      price: true, imageUrl: true, roastLevel: true, flavorNotes: true,
+      weightOptions: true, origin: true, featured: true,
+    },
+  })
   if (!p) return null
   return {
     id: p.id,
@@ -21,7 +28,14 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 }
 
 export async function getProducts(): Promise<Product[]> {
-  const rows = await prisma.product.findMany({ orderBy: { createdAt: "asc" } })
+  const rows = await prisma.product.findMany({
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true, name: true, slug: true, description: true, longDescription: true,
+      price: true, imageUrl: true, roastLevel: true, flavorNotes: true,
+      weightOptions: true, origin: true, featured: true,
+    },
+  })
 
   return rows.map((p) => ({
     id: p.id,
@@ -53,6 +67,10 @@ export async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
   const rows = await prisma.product.findMany({
     where: { featured: true },
     orderBy: { createdAt: "asc" },
+    select: {
+      id: true, name: true, slug: true, description: true, price: true,
+      imageUrl: true, weightOptions: true,
+    },
   })
   return rows.map((p) => ({
     id: p.id,

@@ -1,12 +1,51 @@
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
-import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft } from "lucide-react"
+import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, Tag, Truck, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/lib/cart-context"
+import { validateCoupon } from "@/actions/coupons"
+import { SHIPPING_FEE } from "@/lib/constants"
 
 export default function CartPage() {
   const { items, itemCount, subtotal, removeItem, updateQuantity, clearCart } = useCart()
+  const [couponCode, setCouponCode] = useState("")
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [discount, setDiscount] = useState(0)
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return
+    setCouponLoading(true)
+    setCouponError(null)
+    try {
+      const result = await validateCoupon(couponCode.trim(), subtotal)
+      if (result.valid) {
+        setDiscount(result.discount)
+        setAppliedCoupon(couponCode.trim().toUpperCase())
+        setCouponError(null)
+      } else {
+        setDiscount(0)
+        setAppliedCoupon(null)
+        setCouponError(result.message)
+      }
+    } catch {
+      setCouponError("Failed to validate coupon.")
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setCouponCode("")
+    setDiscount(0)
+    setAppliedCoupon(null)
+    setCouponError(null)
+  }
+
+  const estimatedTotal = Math.max(0, subtotal + SHIPPING_FEE - discount)
 
   if (items.length === 0) {
     return (
@@ -149,15 +188,54 @@ export default function CartPage() {
                   <span className="text-text-primary font-medium tabular-nums">EGP {subtotal}</span>
                 </div>
                 <div className="flex items-center justify-between text-text-secondary">
-                  <span>Shipping</span>
-                  <span className="text-text-muted">Calculated at checkout</span>
+                  <span className="flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5" />
+                    Shipping
+                  </span>
+                  <span className="text-text-primary font-medium tabular-nums">EGP {SHIPPING_FEE}</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex items-center justify-between text-green-500">
+                    <span className="flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5" />
+                      Discount ({appliedCoupon})
+                    </span>
+                    <span className="font-medium tabular-nums">- EGP {discount}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-border pt-3">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-green-500 font-medium">{appliedCoupon} applied</span>
+                    <button onClick={handleRemoveCoupon} className="text-xs text-text-muted hover:text-red-500 transition-colors">Remove</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      placeholder="Coupon code"
+                      className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-text-primary text-xs placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors"
+                    />
+                    <button
+                      onClick={handleApplyCoupon}
+                      disabled={couponLoading || !couponCode.trim()}
+                      className="px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-all disabled:opacity-50"
+                    >
+                      {couponLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
+                    </button>
+                  </div>
+                )}
+                {couponError && <p className="text-xs text-red-500 mb-2">{couponError}</p>}
               </div>
 
               <div className="border-t border-border pt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold text-text-primary">Estimated Total</span>
-                  <span className="text-xl font-bold text-primary font-sans tabular-nums">EGP {subtotal}</span>
+                  <span className="text-xl font-bold text-primary font-sans tabular-nums">EGP {estimatedTotal}</span>
                 </div>
               </div>
 
@@ -168,8 +246,6 @@ export default function CartPage() {
                 <ShoppingBag className="w-4 h-4" />
                 Proceed to Checkout
               </Link>
-
-              <p className="text-xs text-text-muted text-center">Shipping: EGP 60 flat rate</p>
             </motion.div>
           </div>
         </div>

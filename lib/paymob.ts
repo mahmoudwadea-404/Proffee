@@ -106,13 +106,7 @@ export async function createPaymentIntention(
     special_reference: params.specialReference,
   })
 
-  console.log("[paymob] POST to", `${PAYMOB_BASE_URL}/v1/intention/`)
-  console.log("[paymob] integrationId:", integrationId, "amount:", Math.round(params.amount))
-
-  const masked = secretKey.length > 8
-    ? `${secretKey.slice(0, 4)}...${secretKey.slice(-4)}`
-    : "<short>"
-  console.log("[paymob] PAYMOB_SECRET_KEY — length:", secretKey.length, "preview:", masked)
+  console.log("[paymob] Creating intention — amount:", Math.round(params.amount))
 
   const response = await fetch(`${PAYMOB_BASE_URL}/v1/intention/`, {
     method: "POST",
@@ -124,11 +118,8 @@ export async function createPaymentIntention(
   })
 
   if (!response.ok) {
-    const errorBody = await response.text()
-    console.error("[paymob] RESPONSE NOT OK — status:", response.status, "body:", errorBody)
-    throw new Error(
-      `Paymob intention creation failed (${response.status}): ${errorBody}`
-    )
+    console.error("[paymob] Intention creation failed — status:", response.status)
+    throw new Error(`Paymob intention creation failed (${response.status})`)
   }
 
   const data = await response.json()
