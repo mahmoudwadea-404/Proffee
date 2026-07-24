@@ -759,7 +759,7 @@ export async function retryCardPayment(orderId: string) {
       },
       notificationUrl: `${baseUrl}/api/webhooks/paymob`,
       redirectionUrl: `${baseUrl}/checkout/payment-result?orderId=${order.id}`,
-      specialReference: order.id,
+      specialReference: `${order.id}-retry-${Date.now()}`,
     })
 
     const checkoutUrl = getCheckoutUrl(intention.clientSecret)
