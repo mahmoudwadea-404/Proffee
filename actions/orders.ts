@@ -307,18 +307,51 @@ export async function createCardOrder(input: CreateCardOrderInput) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"
     const { createPaymentIntention, getCheckoutUrl } = await import("@/lib/paymob")
-    const intention = await createPaymentIntention({
-      amount: Math.round(total * 100),
-      items: verifiedItems.map((item) => ({
+    // Build Paymob items list — Paymob requires sum(item.amount * item.quantity) == amount exactly.
+    // We include: product items + shipping fee item. If a discount is applied we reduce it
+    // from the shipping item first, then from the last product item (Paymob doesn't accept
+    // negative item amounts).
+    const paymobItems: { name: string; amount: number; quantity: number }[] = verifiedItems.map(
+      (item) => ({
         name: item.name,
         amount: Math.round(item.price * 100),
         quantity: item.quantity,
-      })),
+      })
+    )
+
+    // Add shipping fee as a separate item (amount in cents)
+    const shippingFeeCents = Math.round(shippingFee * 100)
+    const discountCents = Math.round(discountAmount * 100)
+
+    // Net shipping after discount (discount applied to shipping first, then to items)
+    const netShippingCents = Math.max(0, shippingFeeCents - discountCents)
+    const remainingDiscountCents = Math.max(0, discountCents - shippingFeeCents)
+
+    if (netShippingCents > 0) {
+      paymobItems.push({ name: "Shipping", amount: netShippingCents, quantity: 1 })
+    }
+
+    // If discount exceeds shipping fee, spread remaining discount across the last item
+    if (remainingDiscountCents > 0 && paymobItems.length > 0) {
+      const lastIdx = paymobItems.length - 1
+      paymobItems[lastIdx] = {
+        ...paymobItems[lastIdx],
+        amount: Math.max(1, paymobItems[lastIdx].amount - remainingDiscountCents),
+      }
+    }
+
+    // itemsTotal is the canonical amount sent to Paymob — sum(item.amount * item.quantity)
+    const itemsTotal = paymobItems.reduce((s, i) => s + i.amount * i.quantity, 0)
+
+    const intention = await createPaymentIntention({
+      amount: itemsTotal, // Use computed items total to guarantee exact match
+      items: paymobItems,
       billingData: {
         first_name: input.firstName,
         last_name: input.lastName,
         email: input.email,
-        phone_number: input.phone,
+        // Strip leading + from phone — Paymob rejects +2010... format
+        phone_number: input.phone.replace(/^\+/, ""),
         street: input.address,
         city: input.city,
         country: "EG",
@@ -671,18 +704,42 @@ export async function retryCardPayment(orderId: string) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"
     const { createPaymentIntention, getCheckoutUrl } = await import("@/lib/paymob")
 
-    const intention = await createPaymentIntention({
-      amount: Math.round(order.total * 100),
-      items: order.items.map((item) => ({
+    // Build Paymob items — sum must equal amount exactly (Paymob 406 unmatched_item_prices)
+    const retryPaymobItems: { name: string; amount: number; quantity: number }[] = order.items.map(
+      (item) => ({
         name: item.product.name,
         amount: Math.round(item.price * 100),
         quantity: item.quantity,
-      })),
+      })
+    )
+
+    const retryShippingCents = Math.round(order.shippingFee * 100)
+    const retryDiscountCents = Math.round(order.discountAmount * 100)
+    const retryNetShipping = Math.max(0, retryShippingCents - retryDiscountCents)
+    const retryRemainingDiscount = Math.max(0, retryDiscountCents - retryShippingCents)
+
+    if (retryNetShipping > 0) {
+      retryPaymobItems.push({ name: "Shipping", amount: retryNetShipping, quantity: 1 })
+    }
+    if (retryRemainingDiscount > 0 && retryPaymobItems.length > 0) {
+      const lastIdx = retryPaymobItems.length - 1
+      retryPaymobItems[lastIdx] = {
+        ...retryPaymobItems[lastIdx],
+        amount: Math.max(1, retryPaymobItems[lastIdx].amount - retryRemainingDiscount),
+      }
+    }
+
+    const retryItemsTotal = retryPaymobItems.reduce((s, i) => s + i.amount * i.quantity, 0)
+
+    const intention = await createPaymentIntention({
+      amount: retryItemsTotal,
+      items: retryPaymobItems,
       billingData: {
         first_name: order.firstName,
         last_name: order.lastName,
         email: order.email,
-        phone_number: order.phone,
+        // Strip leading + — Paymob rejects +2010... format
+        phone_number: order.phone.replace(/^\+/, ""),
         street: order.address,
         city: order.city,
         country: "EG",
