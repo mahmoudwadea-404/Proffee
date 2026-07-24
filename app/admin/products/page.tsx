@@ -262,7 +262,7 @@ export default function AdminProductsPage() {
                     <tr key={product.id} className="border-b border-border last:border-b-0 hover:bg-surface-2 transition-colors">
                       <td className="px-5 py-4 text-text-primary font-medium">{product.name}</td>
                       <td className="px-5 py-4 text-text-secondary">{product.slug}</td>
-                      <td className="px-5 py-4 text-text-primary font-sans tabular-nums text-right">EGP {product.price}</td>
+                      <td className="px-5 py-4 text-text-primary font-sans tabular-nums text-right">EGP {product.price.toLocaleString()}</td>
                       <td className="px-5 py-4 text-text-primary tabular-nums text-right">{product.stock}</td>
                       <td className="px-5 py-4">
                         <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">

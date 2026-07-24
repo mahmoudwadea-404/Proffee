@@ -1,57 +1,14 @@
 "use client"
 
-import { Suspense, useState, useEffect } from "react"
+import { Suspense } from "react"
 import { motion } from "framer-motion"
-import { CheckCircle, Package, ArrowLeft, Loader2, RefreshCw, ShoppingCart } from "lucide-react"
+import { CheckCircle, Package, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { useCart } from "@/lib/cart-context"
-
-type OrderItem = {
-  quantity: number
-  price: number
-  weight: number
-  weightLabel: string
-  product: { name: string; imageUrl: string; slug: string; id: string }
-}
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams()
   const orderId = searchParams.get("orderId")
-  const { addItem } = useCart()
-  const [orderItems, setOrderItems] = useState<OrderItem[] | null>(null)
-  const [reordered, setReordered] = useState(false)
-
-  useEffect(() => {
-    if (!orderId) return
-    const fetchOrder = async () => {
-      try {
-        const res = await fetch(`/api/orders/track?orderId=${orderId}&email=`)
-        // We don't have email here, so we'll just show the reorder button that adds sample items
-      } catch {
-        // Ignore
-      }
-    }
-    fetchOrder()
-  }, [orderId])
-
-  const handleReorder = () => {
-    if (!orderItems) return
-    for (const item of orderItems) {
-      for (let i = 0; i < item.quantity; i++) {
-        addItem({
-          productId: item.product.id,
-          slug: item.product.slug,
-          name: item.product.name,
-          image: item.product.imageUrl,
-          price: item.price,
-          weight: item.weight,
-          weightLabel: item.weightLabel,
-        })
-      }
-    }
-    setReordered(true)
-  }
 
   return (
     <motion.div
@@ -85,21 +42,11 @@ function OrderSuccessContent() {
 
       <div className="pt-4 space-y-3">
         <p className="text-sm text-text-muted">
-          You will receive a confirmation email with your order details shortly.
-        </p>
-        <p className="text-sm text-text-muted">
-          Payment will be collected in cash upon delivery.
+          You will receive confirmation and updates regarding your order status.
         </p>
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-        <Link
-          href={`/track${orderId ? `?orderId=${orderId}` : ""}`}
-          className="inline-flex items-center gap-2 px-6 py-4 rounded-xl border border-primary/40 text-primary font-semibold text-sm hover:bg-primary/10 transition-all duration-300"
-        >
-          <Package className="w-4 h-4" />
-          Track Order
-        </Link>
         <Link
           href="/products"
           className="inline-flex items-center gap-2 px-6 py-4 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary-dark transition-all duration-300"

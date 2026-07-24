@@ -3,7 +3,7 @@
 import { prisma, atomicDecrementStock } from "@/lib/prisma"
 import { validateCoupon } from "@/actions/coupons"
 import { SHIPPING_FEE } from "@/lib/constants"
-import { requireUser, requireAdmin, type AuthUser } from "@/lib/auth"
+import { requireAdmin } from "@/lib/auth"
 import { rateLimit } from "@/lib/rate-limit"
 
 export type CreateOrderInput = {
@@ -80,19 +80,6 @@ export async function createOrder(input: CreateOrderInput) {
 
     const total = Math.max(0, subtotal + shippingFee - discountAmount)
 
-    const fullName = `${input.firstName} ${input.lastName}`
-    const user = await prisma.user.upsert({
-      where: { email: input.email },
-      update: { name: fullName, phone: input.phone },
-      create: {
-        supabaseId: `guest_${input.email}_${Date.now()}`,
-        name: fullName,
-        email: input.email,
-        phone: input.phone,
-        role: "CUSTOMER",
-      },
-    })
-
     const order = await prisma.$transaction(async (tx) => {
       const txProducts = await tx.product.findMany({
         where: { id: { in: productIds } },
@@ -131,7 +118,7 @@ export async function createOrder(input: CreateOrderInput) {
 
       const created = await tx.order.create({
         data: {
-          userId: user.id,
+          email: input.email,
           status: "PENDING",
           paymentStatus: "UNPAID",
           paymentMethod: "COD",
@@ -265,23 +252,10 @@ export async function createCardOrder(input: CreateCardOrderInput) {
 
     const total = Math.max(0, subtotal + shippingFee - discountAmount)
 
-    const fullName = `${input.firstName} ${input.lastName}`
-    const user = await prisma.user.upsert({
-      where: { email: input.email },
-      update: { name: fullName, phone: input.phone },
-      create: {
-        supabaseId: `guest_${input.email}_${Date.now()}`,
-        name: fullName,
-        email: input.email,
-        phone: input.phone,
-        role: "CUSTOMER",
-      },
-    })
-
     const order = await prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
-          userId: user.id,
+          email: input.email,
           status: "PENDING" as const,
           paymentStatus: "PENDING",
           paymentMethod: "CARD",
@@ -423,7 +397,8 @@ export type HandlePaymentRedirectInput = {
  * (e.g. AUTHENTICATION_FAILED pre-auth declines).
  *
  * Safe to call even if the webhook already processed — it checks current status
- * before writing and only upgrades from PENDING/UNPAID/FAILED → PAID or FAILED.
+ * before writing (idempotency guard) and performs the same stock/coupon side-effects
+ * as the webhook handler to prevent overselling when redirect fires first.
  */
 export async function handlePaymentRedirect(input: HandlePaymentRedirectInput) {
   try {
@@ -443,6 +418,8 @@ export async function handlePaymentRedirect(input: HandlePaymentRedirectInput) {
       select: {
         id: true,
         paymentStatus: true,
+        total: true,
+        couponId: true,
       },
     })
 
@@ -450,33 +427,97 @@ export async function handlePaymentRedirect(input: HandlePaymentRedirectInput) {
       return { success: false, error: "Order not found" }
     }
 
+    // Idempotency — already settled
     if (order.paymentStatus === "PAID") {
       return { success: true, paymentStatus: "PAID" }
+    }
+    if (order.paymentStatus === "FAILED" && input.success !== "true") {
+      return { success: true, paymentStatus: "FAILED" }
     }
 
     const paymobSuccess = input.success === "true"
 
     if (paymobSuccess) {
-      const updated = await prisma.order.updateMany({
-        where: {
-          id: input.orderId,
-          paymentStatus: { in: ["PENDING", "UNPAID"] },
-        },
-        data: {
-          paymentStatus: "PAID",
-          paymobTransactionId: input.id,
-        },
+      // Perform the full payment confirmation transaction — same as webhook —
+      // so stock is always decremented and coupon always incremented exactly once.
+      let fullyProcessed = false
+
+      await prisma.$transaction(async (tx) => {
+        // Atomic conditional update — only proceed if order is still in a pending state
+        const updated = await tx.order.updateMany({
+          where: {
+            id: input.orderId,
+            paymentStatus: { in: ["PENDING", "UNPAID"] },
+          },
+          data: {
+            paymentStatus: "PAID",
+            status: "CONFIRMED",
+            paymobTransactionId: input.id,
+          },
+        })
+
+        // Another process already settled this order — skip side-effects
+        if (updated.count === 0) return
+
+        const orderItems = await tx.orderItem.findMany({
+          where: { orderId: order.id },
+          select: {
+            productId: true,
+            quantity: true,
+            product: { select: { id: true, stock: true, name: true } },
+          },
+        })
+
+        for (const item of orderItems) {
+          const decremented = await atomicDecrementStock(tx, item.productId, item.quantity)
+          if (!decremented) {
+            // Stock check failed — mark as failed and abort
+            await tx.order.update({
+              where: { id: order.id },
+              data: { paymentStatus: "FAILED", status: "PENDING" },
+            })
+            await tx.orderStatusLog.create({
+              data: {
+                orderId: order.id,
+                fromPayment: "PENDING",
+                toPayment: "FAILED",
+                toStatus: "PENDING",
+                note: "Payment confirmed via redirect but stock insufficient",
+              },
+            })
+            return
+          }
+        }
+
+        if (order.couponId) {
+          await tx.coupon.update({
+            where: { id: order.couponId },
+            data: { usedCount: { increment: 1 } },
+          })
+        }
+
+        await tx.orderStatusLog.create({
+          data: {
+            orderId: order.id,
+            fromStatus: "PENDING",
+            toStatus: "CONFIRMED",
+            fromPayment: "PENDING",
+            toPayment: "PAID",
+            note: "Payment confirmed via redirect callback",
+          },
+        })
+
+        fullyProcessed = true
       })
 
-      if (updated.count === 0) {
-        const current = await prisma.order.findUnique({
-          where: { id: input.orderId },
-          select: { paymentStatus: true },
-        })
-        return { success: true, paymentStatus: current?.paymentStatus ?? "PAID" }
-      }
+      console.log("[AUDIT] Payment Confirmed via Redirect — orderId:", order.id, "processed:", fullyProcessed)
 
-      return { success: true, paymentStatus: "PAID" }
+      // Re-read the settled status after transaction
+      const settled = await prisma.order.findUnique({
+        where: { id: input.orderId },
+        select: { paymentStatus: true },
+      })
+      return { success: true, paymentStatus: settled?.paymentStatus ?? "PAID" }
     } else {
       const updated = await prisma.order.updateMany({
         where: {
@@ -489,15 +530,23 @@ export async function handlePaymentRedirect(input: HandlePaymentRedirectInput) {
         },
       })
 
-      if (updated.count === 0) {
-        const current = await prisma.order.findUnique({
-          where: { id: input.orderId },
-          select: { paymentStatus: true },
+      if (updated.count > 0) {
+        await prisma.orderStatusLog.create({
+          data: {
+            orderId: order.id,
+            fromPayment: "PENDING",
+            toPayment: "FAILED",
+            toStatus: "PENDING",
+            note: "Payment failed via redirect callback",
+          },
         })
-        return { success: true, paymentStatus: current?.paymentStatus ?? "FAILED" }
       }
 
-      return { success: true, paymentStatus: "FAILED" }
+      const current = await prisma.order.findUnique({
+        where: { id: input.orderId },
+        select: { paymentStatus: true },
+      })
+      return { success: true, paymentStatus: current?.paymentStatus ?? "FAILED" }
     }
   } catch (error) {
     console.error("[handlePaymentRedirect] Error:", error instanceof Error ? error.message : "unknown")
@@ -546,11 +595,9 @@ export async function cleanupStaleCardOrders(): Promise<CleanupResult> {
 
 export async function retryCardPayment(orderId: string) {
   try {
-    const user = await requireUser()
     const rawOrder = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        user: { select: { email: true, id: true } },
         items: {
           select: {
             productId: true,
@@ -567,11 +614,6 @@ export async function retryCardPayment(orderId: string) {
       return { success: false, error: "Order not found." }
     }
 
-    // Ownership check — only the order owner can retry
-    if (rawOrder.userId !== user.id) {
-      return { success: false, error: "Order not found." }
-    }
-
     const order = {
       id: rawOrder.id,
       status: rawOrder.status,
@@ -585,7 +627,7 @@ export async function retryCardPayment(orderId: string) {
       couponCode: rawOrder.couponCode,
       firstName: rawOrder.firstName,
       lastName: rawOrder.lastName,
-      email: rawOrder.user.email,
+      email: rawOrder.email,
       phone: rawOrder.phone,
       address: rawOrder.address,
       city: rawOrder.city,

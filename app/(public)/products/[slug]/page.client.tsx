@@ -2,15 +2,13 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { motion } from "framer-motion"
-import { ShoppingCart, Check, ArrowLeft, Leaf, MapPin, Thermometer, Zap, Heart, Clock } from "lucide-react"
+import { ShoppingCart, Check, ArrowLeft, Leaf, MapPin, Thermometer, Zap, Clock } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 import type { Product } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
 import { useRecentlyViewed } from "@/lib/recently-viewed-context"
-import { toggleWishlist, getWishlistIds } from "@/actions/wishlist"
-import { getPrismaUserId } from "@/actions/auth"
 
 export default function ProductDetailPage({ product, related }: { product: Product; related: Product[] }) {
   const router = useRouter()
@@ -19,8 +17,6 @@ export default function ProductDetailPage({ product, related }: { product: Produ
 
   const [selectedWeight, setSelectedWeight] = useState(0)
   const [addedToCart, setAddedToCart] = useState(false)
-  const [inWishlist, setInWishlist] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
 
   const weight = product.weightOptions[selectedWeight]
   const displayPrice = weight?.price ?? product.price
@@ -34,20 +30,6 @@ export default function ProductDetailPage({ product, related }: { product: Produ
       price: product.price,
       roastLevel: product.roastLevel,
     })
-
-    const checkWishlist = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const prismaId = await getPrismaUserId(user.id)
-      if (!prismaId) return
-      setUserId(prismaId)
-      const result = await getWishlistIds(prismaId)
-      if (result.success) {
-        setInWishlist(result.ids.includes(product.id))
-      }
-    }
-    checkWishlist()
   }, [product, addView])
 
   const handleAddToCart = () => {
@@ -62,17 +44,6 @@ export default function ProductDetailPage({ product, related }: { product: Produ
     })
     setAddedToCart(true)
     setTimeout(() => setAddedToCart(false), 2000)
-  }
-
-  const handleToggleWishlist = async () => {
-    if (!userId) {
-      router.push("/login")
-      return
-    }
-    const result = await toggleWishlist(userId, product.id)
-    if (result.success) {
-      setInWishlist(result.added ?? false)
-    }
   }
 
   const handleBuyNow = useCallback(() => {
@@ -110,9 +81,11 @@ export default function ProductDetailPage({ product, related }: { product: Produ
             transition={{ duration: 0.6 }}
           >
             <div className="aspect-square rounded-2xl bg-gradient-to-br from-[#3A2A1A] to-[#1A100A] flex items-center justify-center border border-border overflow-hidden relative">
-              <img
+              <Image
                 src={product.image}
                 alt={product.name}
+                width={600}
+                height={600}
                 className="w-full h-full object-cover opacity-90"
               />
               <span className="absolute top-4 left-4 px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-semibold uppercase tracking-wider">
@@ -191,7 +164,7 @@ export default function ProductDetailPage({ product, related }: { product: Produ
 
             <div className="flex items-center gap-4 pt-4 border-t border-border">
               <p className="text-3xl font-bold text-primary font-sans">
-                EGP {displayPrice}
+                EGP {displayPrice.toLocaleString()}
               </p>
               <div className="flex-1 flex items-center gap-3">
                 <button
@@ -211,17 +184,6 @@ export default function ProductDetailPage({ product, related }: { product: Produ
                 >
                   <Zap className="w-5 h-5" />
                   Buy Now
-                </button>
-                <button
-                  onClick={handleToggleWishlist}
-                  className={`p-4 rounded-xl border transition-all duration-300 ${
-                    inWishlist
-                      ? "bg-red-500/10 border-red-500/30 text-red-500"
-                      : "border-border text-text-muted hover:text-red-500 hover:border-red-500/30"
-                  }`}
-                  title={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
-                >
-                  <Heart className={`w-5 h-5 ${inWishlist ? "fill-current" : ""}`} />
                 </button>
               </div>
             </div>
@@ -254,9 +216,11 @@ export default function ProductDetailPage({ product, related }: { product: Produ
                   <Link href={`/products/${r.slug}`} className="group block">
                     <div className="rounded-2xl border border-border bg-surface overflow-hidden hover:border-primary/30 transition-all duration-500">
                       <div className="aspect-[4/3] bg-gradient-to-br from-[#3A2A1A] to-[#1A100A] flex items-center justify-center overflow-hidden">
-                        <img
+                        <Image
                           src={r.image}
                           alt={r.name}
+                          width={400}
+                          height={300}
                           className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500 scale-105 group-hover:scale-110 transition-transform duration-700"
                         />
                       </div>
@@ -268,7 +232,7 @@ export default function ProductDetailPage({ product, related }: { product: Produ
                           {r.description}
                         </p>
                         <p className="text-xl font-semibold text-primary font-sans">
-                          EGP {r.price}
+                          EGP {r.price.toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -315,11 +279,11 @@ function RecentlyViewedSection({ currentId }: { currentId: string }) {
             <Link href={`/products/${item.slug}`} className="group block">
               <div className="rounded-2xl border border-border bg-surface overflow-hidden hover:border-primary/30 transition-all duration-500">
                 <div className="aspect-[4/3] bg-gradient-to-br from-[#3A2A1A] to-[#1A100A] overflow-hidden">
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  <Image src={item.image} alt={item.name} width={300} height={225} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                 </div>
                 <div className="p-3 space-y-1">
                   <h3 className="font-serif text-sm text-text-primary group-hover:text-primary transition-colors line-clamp-1">{item.name}</h3>
-                  <p className="text-sm font-semibold text-primary font-sans">EGP {item.price}</p>
+                  <p className="text-sm font-semibold text-primary font-sans">EGP {item.price.toLocaleString()}</p>
                 </div>
               </div>
             </Link>

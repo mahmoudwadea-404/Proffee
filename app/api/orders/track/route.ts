@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const order = await prisma.order.findFirst({
       where: {
         id: orderId,
-        user: { email: email.toLowerCase() },
+        email: email.toLowerCase(),
       },
       select: {
         id: true,

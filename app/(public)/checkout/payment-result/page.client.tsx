@@ -24,13 +24,11 @@ function PaymentResultContent() {
 
   useEffect(() => {
     if (!orderId) {
-      console.warn("[PaymentResult] No orderId in URL, setting not_found")
       setStatus("not_found")
       return
     }
 
     if (paymobSuccess === "false") {
-      console.log("[PaymentResult] Paymob redirect indicates failure — calling handlePaymentRedirect")
       const failOrder = async () => {
         try {
           const result = await handlePaymentRedirect({
@@ -57,7 +55,6 @@ function PaymentResultContent() {
             source_data_type: searchParams.get("source_data_type") ?? "",
             hmac: searchParams.get("hmac") ?? "",
           })
-          console.log("[PaymentResult] handlePaymentRedirect result:", JSON.stringify(result))
           if (result.success && result.paymentStatus) {
             setStatus(result.paymentStatus as PaymentStatus)
             return
@@ -79,8 +76,6 @@ function PaymentResultContent() {
         }
         const data = await res.json()
         const paymentStatus: string = data.paymentStatus
-        console.log("[PaymentResult] Polled status:", paymentStatus, "(attempt", retriesRef.current + 1, "of", MAX_RETRIES, ")")
-
         if (paymentStatus === "PAID") {
           clearInterval(interval)
           if (!cartClearedRef.current) {
@@ -110,7 +105,6 @@ function PaymentResultContent() {
     return () => clearInterval(interval)
   }, [orderId, paymobSuccess, searchParams, clearCart])
 
-  console.log("[PaymentResult] Rendering with status:", status)
 
   if (status === "loading") {
     return (

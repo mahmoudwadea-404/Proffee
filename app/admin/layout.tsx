@@ -27,10 +27,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        router.push("/login")
+        router.push("/admin/login")
         return
       }
-      const res = await fetch(`/api/user/role?email=${user.email}`)
+      const res = await fetch("/api/user/role")
       if (res.ok) {
         const data = await res.json()
         if (data.role !== "ADMIN") {

@@ -4,6 +4,7 @@ import { useRef, useCallback } from "react"
 import { motion, useInView } from "framer-motion"
 import { ShoppingCart, ChevronLeft, ChevronRight, Zap } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/lib/cart-context"
 import type { FeaturedProduct } from "@/lib/db-products"
@@ -106,9 +107,11 @@ export default function PopularPicks({ products }: { products: FeaturedProduct[]
             >
               <Link href={`/products/${product.slug}`} className="block">
                 <div className="aspect-[4/3] bg-gradient-to-br from-[#3A2A1A] to-[#1A100A] flex items-center justify-center overflow-hidden">
-                  <img
+                  <Image
                     src={product.image}
                     alt={product.name}
+                    width={300}
+                    height={225}
                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500 scale-105 group-hover:scale-110 transition-transform duration-700"
                   />
                 </div>
@@ -133,7 +136,7 @@ export default function PopularPicks({ products }: { products: FeaturedProduct[]
                 </p>
                 <div className="flex items-center justify-between">
                   <p className="text-xl font-semibold text-primary font-sans">
-                    EGP {product.price}
+                    EGP {product.price.toLocaleString()}
                   </p>
                   <button
                     onClick={() => handleBuyNow(product)}

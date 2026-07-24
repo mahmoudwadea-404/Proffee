@@ -57,13 +57,25 @@ export async function addServerCartItem(
 }
 
 export async function removeServerCartItem(id: string) {
-  await requireUser()
+  const user = await requireUser()
+  // Verify ownership before deleting
+  const item = await prisma.cartItem.findUnique({
+    where: { id },
+    select: { userId: true },
+  })
+  if (!item || item.userId !== user.id) return null
   return prisma.cartItem.delete({ where: { id } })
 }
 
 export async function updateServerCartItemQuantity(id: string, quantity: number) {
-  await requireUser()
+  const user = await requireUser()
   if (quantity < 1) return null
+  // Verify ownership before updating
+  const item = await prisma.cartItem.findUnique({
+    where: { id },
+    select: { userId: true },
+  })
+  if (!item || item.userId !== user.id) return null
   return prisma.cartItem.update({ where: { id }, data: { quantity } })
 }
 

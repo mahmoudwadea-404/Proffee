@@ -4,6 +4,7 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, Tag, Truck, Loader2 } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useCart } from "@/lib/cart-context"
 import { validateCoupon } from "@/actions/coupons"
 import { SHIPPING_FEE } from "@/lib/constants"
@@ -99,7 +100,7 @@ export default function CartPage() {
                   href={`/products/${item.slug}`}
                   className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-gradient-to-br from-[#3A2A1A] to-[#1A100A] flex items-center justify-center shrink-0 border border-border overflow-hidden"
                 >
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover opacity-80" />
+                  <Image src={item.image} alt={item.name} width={96} height={96} className="w-full h-full object-cover opacity-80" />
                 </Link>
 
                 <div className="flex-1 min-w-0 space-y-2">
@@ -113,9 +114,9 @@ export default function CartPage() {
                       </Link>
                       <p className="text-xs text-text-muted">{item.weightLabel}</p>
                     </div>
-                    <p className="text-lg font-semibold text-primary font-sans whitespace-nowrap">
-                      EGP {item.price}
-                    </p>
+                      <p className="text-lg font-semibold text-primary font-sans whitespace-nowrap">
+                        EGP {item.price.toLocaleString()}
+                      </p>
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
@@ -141,7 +142,7 @@ export default function CartPage() {
 
                     <div className="flex items-center gap-3">
                       <p className="text-sm font-semibold text-text-primary font-sans tabular-nums">
-                        EGP {item.price * item.quantity}
+                        EGP {(item.price * item.quantity).toLocaleString()}
                       </p>
                       <button
                         onClick={() => removeItem(item.productId, item.weight)}
@@ -185,14 +186,14 @@ export default function CartPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between text-text-secondary">
                   <span>Subtotal ({itemCount} item{itemCount !== 1 ? "s" : ""})</span>
-                  <span className="text-text-primary font-medium tabular-nums">EGP {subtotal}</span>
+                  <span className="text-text-primary font-medium tabular-nums">EGP {subtotal.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between text-text-secondary">
                   <span className="flex items-center gap-1.5">
                     <Truck className="w-3.5 h-3.5" />
                     Shipping
                   </span>
-                  <span className="text-text-primary font-medium tabular-nums">EGP {SHIPPING_FEE}</span>
+                  <span className="text-text-primary font-medium tabular-nums">EGP {SHIPPING_FEE.toLocaleString()}</span>
                 </div>
                 {discount > 0 && (
                   <div className="flex items-center justify-between text-green-500">
@@ -200,7 +201,7 @@ export default function CartPage() {
                       <Tag className="w-3.5 h-3.5" />
                       Discount ({appliedCoupon})
                     </span>
-                    <span className="font-medium tabular-nums">- EGP {discount}</span>
+                    <span className="font-medium tabular-nums">- EGP {discount.toLocaleString()}</span>
                   </div>
                 )}
               </div>
@@ -235,7 +236,7 @@ export default function CartPage() {
               <div className="border-t border-border pt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold text-text-primary">Estimated Total</span>
-                  <span className="text-xl font-bold text-primary font-sans tabular-nums">EGP {estimatedTotal}</span>
+                  <span className="text-xl font-bold text-primary font-sans tabular-nums">EGP {estimatedTotal.toLocaleString()}</span>
                 </div>
               </div>
 

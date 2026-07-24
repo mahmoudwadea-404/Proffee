@@ -1,16 +1,6 @@
 "use client"
 
-import { createContext, useContext, useCallback, useEffect, useRef, useState, type ReactNode } from "react"
-import { createClient } from "@/lib/supabase/client"
-import {
-  getServerCart,
-  addServerCartItem,
-  removeServerCartItem,
-  updateServerCartItemQuantity,
-  mergeServerCart,
-  clearServerCart,
-} from "@/actions/cart"
-import { getPrismaUserId } from "@/actions/auth"
+import { createContext, useContext, useCallback, useEffect, useState, type ReactNode } from "react"
 
 export interface CartItem {
   id?: string
@@ -54,73 +44,26 @@ function saveLocalCart(items: CartItem[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
 }
 
-function clearLocalCart() {
-  if (typeof window === "undefined") return
-  localStorage.removeItem(STORAGE_KEY)
-}
-
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
-  const [userId, setUserId] = useState<string | null>(null)
-  const supabaseRef = useRef(createClient())
-  const isFirstRender = useRef(true)
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw) as CartItem[]
-        if (parsed.length > 0) setItems(parsed)
-      }
-    } catch { /* ignore */ }
+    setItems(loadLocalCart())
+    setLoaded(true)
   }, [])
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabaseRef.current.auth.getUser()
-      if (user) {
-        const prismaId = await getPrismaUserId(user.id)
-        if (!prismaId) return
-        setUserId(prismaId)
-        const local = loadLocalCart()
-        if (local.length > 0) {
-          await mergeServerCart(
-            prismaId,
-            local.map((i) => ({
-              productId: i.productId,
-              quantity: i.quantity,
-              weight: String(i.weight),
-            }))
-          )
-          clearLocalCart()
-        }
-        const dbItems = await getServerCart(prismaId)
-        setItems(dbItems)
-      }
-    }
-    init()
-  }, [])
-
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      return
-    }
-    if (!userId) {
+    if (loaded) {
       saveLocalCart(items)
     }
-  }, [items, userId])
+  }, [items, loaded])
 
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0)
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
 
   const addItem = useCallback((item: Omit<CartItem, "quantity"> & { quantity?: number }) => {
     const qty = item.quantity ?? 1
-    if (userId) {
-      addServerCartItem(userId, item.productId, qty, String(item.weight)).then(() => {
-        getServerCart(userId).then(setItems)
-      })
-    }
     setItems((prev) => {
       const existing = prev.find((i) => i.productId === item.productId && i.weight === item.weight)
       if (existing) {
@@ -132,41 +75,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { ...item, quantity: qty }]
     })
-  }, [userId])
+  }, [])
 
   const removeItem = useCallback((productId: string, weight: number) => {
-    let removedId: string | undefined
-    setItems((prev) => {
-      const target = prev.find((i) => i.productId === productId && i.weight === weight)
-      removedId = target?.id
-      return prev.filter((i) => i.productId !== productId || i.weight !== weight)
-    })
-    if (userId && removedId) {
-      removeServerCartItem(removedId)
-    }
-  }, [userId])
+    setItems((prev) => prev.filter((i) => i.productId !== productId || i.weight !== weight))
+  }, [])
 
   const updateQuantity = useCallback((productId: string, weight: number, quantity: number) => {
     if (quantity < 1) return
-    let targetId: string | undefined
-    setItems((prev) => {
-      const target = prev.find((i) => i.productId === productId && i.weight === weight)
-      targetId = target?.id
-      return prev.map((i) =>
+    setItems((prev) =>
+      prev.map((i) =>
         i.productId === productId && i.weight === weight ? { ...i, quantity } : i
       )
-    })
-    if (userId && targetId) {
-      updateServerCartItemQuantity(targetId, quantity)
-    }
-  }, [userId])
+    )
+  }, [])
 
   const clearCart = useCallback(() => {
     setItems([])
-    if (userId) {
-      clearServerCart(userId)
-    }
-  }, [userId])
+  }, [])
 
   return (
     <CartContext.Provider value={{ items, itemCount, subtotal, addItem, removeItem, updateQuantity, clearCart }}>

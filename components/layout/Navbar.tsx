@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ShoppingBag, User as UserIcon, Menu, X, LogOut, Shield, Heart, Package } from "lucide-react"
+import { ShoppingBag, Menu, X, LogOut, Shield } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import { useCart } from "@/lib/cart-context"
@@ -25,7 +25,7 @@ export default function Navbar() {
 
       if (session?.user) {
         try {
-          const res = await fetch(`/api/user/role?email=${session.user.email}`)
+          const res = await fetch("/api/user/role")
           if (res.ok) {
             const data = await res.json()
             setIsAdmin(data.role === "ADMIN")
@@ -43,7 +43,7 @@ export default function Navbar() {
       setUser(session?.user ?? null)
       if (session?.user) {
         try {
-          const res = await fetch(`/api/user/role?email=${session.user.email}`)
+          const res = await fetch("/api/user/role")
           if (res.ok) {
             const data = await res.json()
             setIsAdmin(data.role === "ADMIN")
@@ -119,20 +119,6 @@ export default function Navbar() {
 
       <div className="flex items-center gap-3">
         <Link
-          href="/track"
-          className="p-2 text-text-secondary hover:text-primary transition-colors duration-300 hidden md:block"
-          aria-label="Track Order"
-        >
-          <Package className="w-5 h-5" />
-        </Link>
-        <Link
-          href="/wishlist"
-          className="p-2 text-text-secondary hover:text-primary transition-colors duration-300 hidden md:block"
-          aria-label="Wishlist"
-        >
-          <Heart className="w-5 h-5" />
-        </Link>
-        <Link
           href="/cart"
           className="relative p-2 text-text-secondary hover:text-primary transition-colors duration-300"
           aria-label="Shopping cart"
@@ -145,55 +131,36 @@ export default function Navbar() {
           )}
         </Link>
 
-        {!loading && (
+        {!loading && isAdmin && user && (
           <div className="relative group">
-            {user ? (
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/account"
-                  className="p-2 text-text-secondary hover:text-primary transition-colors duration-300 flex items-center gap-1"
-                  aria-label="Account"
-                >
-                  <UserIcon className="w-6 h-6" />
-                </Link>
-                <div className="absolute right-0 mt-2 w-48 rounded-md bg-surface border border-border py-1 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 origin-top-right z-50">
-                  <div className="px-4 py-2 border-b border-border text-xs text-text-secondary truncate">
-                    {user.email}
-                  </div>
-                  {isAdmin && (
-                    <Link
-                      href="/admin"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-surface-2 transition-colors"
-                    >
-                      <Shield className="w-4 h-4 text-primary" />
-                      Admin Panel
-                    </Link>
-                  )}
-                  <Link
-                    href="/account"
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-surface-2 transition-colors"
-                  >
-                    <UserIcon className="w-4 h-4" />
-                    My Account
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-surface-2 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-            ) : (
+            <div className="flex items-center gap-2">
               <Link
-                href="/login"
-                className="p-2 text-text-secondary hover:text-primary transition-colors duration-300"
-                aria-label="Sign in"
+                href="/admin"
+                className="p-2 text-text-secondary hover:text-primary transition-colors duration-300 flex items-center gap-1"
+                aria-label="Admin Panel"
               >
-                <UserIcon className="w-6 h-6" />
+                <Shield className="w-5 h-5" />
               </Link>
-            )}
+              <div className="absolute right-0 mt-2 w-48 rounded-md bg-surface border border-border py-1 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 origin-top-right z-50">
+                <div className="px-4 py-2 border-b border-border text-xs text-text-secondary truncate">
+                  {user.email}
+                </div>
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-surface-2 transition-colors"
+                >
+                  <Shield className="w-4 h-4 text-primary" />
+                  Admin Panel
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-surface-2 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -242,45 +209,19 @@ export default function Navbar() {
                   </Link>
                 )
               })}
-              <Link
-                href="/wishlist"
-                onClick={() => setIsOpen(false)}
-                className="text-lg font-medium text-text-secondary pl-3 hover:text-text-primary transition-colors duration-300 flex items-center gap-2"
-              >
-                <Heart className="w-5 h-5" />
-                Wishlist
-              </Link>
-              <Link
-                href="/track"
-                onClick={() => setIsOpen(false)}
-                className="text-lg font-medium text-text-secondary pl-3 hover:text-text-primary transition-colors duration-300 flex items-center gap-2"
-              >
-                <Package className="w-5 h-5" />
-                Track Order
-              </Link>
             </nav>
 
             <div className="border-t border-border pt-6 mt-auto">
-              {user ? (
+              {!loading && isAdmin && user && (
                 <div className="space-y-4">
                   <div className="text-xs text-text-secondary truncate">{user.email}</div>
-                  {isAdmin && (
-                    <Link
-                      href="/admin"
-                      onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-2 py-2 text-text-primary hover:text-primary transition-colors"
-                    >
-                      <Shield className="w-5 h-5 text-primary" />
-                      Admin Panel
-                    </Link>
-                  )}
                   <Link
-                    href="/account"
+                    href="/admin"
                     onClick={() => setIsOpen(false)}
                     className="flex items-center gap-2 py-2 text-text-primary hover:text-primary transition-colors"
                   >
-                    <UserIcon className="w-5 h-5" />
-                    My Account
+                    <Shield className="w-5 h-5 text-primary" />
+                    Admin Panel
                   </Link>
                   <button
                     onClick={handleLogout}
@@ -290,15 +231,6 @@ export default function Navbar() {
                     Sign Out
                   </button>
                 </div>
-              ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-md bg-primary text-white font-semibold hover:bg-primary-dark transition-colors duration-300"
-                >
-                  <UserIcon className="w-5 h-5" />
-                  Sign In
-                </Link>
               )}
             </div>
           </motion.div>

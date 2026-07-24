@@ -33,7 +33,8 @@ type Order = {
   city: string
   address: string
   phone: string
-  user: { name: string; email: string }
+  email: string
+  user: { name: string; email: string } | null
   items: OrderItem[]
 }
 
@@ -174,8 +175,8 @@ export default function AdminOrdersPage() {
   const filtered = orders.filter((o) => {
     const matchesSearch =
       o.id.toLowerCase().includes(search.toLowerCase()) ||
-      o.user.name.toLowerCase().includes(search.toLowerCase()) ||
-      o.user.email.toLowerCase().includes(search.toLowerCase())
+      (o.user?.name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (o.user?.email ?? o.email ?? "").toLowerCase().includes(search.toLowerCase())
     const matchesPaymentStatus =
       paymentStatusFilter === "All" || o.paymentStatus === paymentStatusFilter
     const matchesPaymentMethod =
@@ -323,8 +324,8 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div>
-                          <p className="text-text-primary font-medium text-xs">{order.user.name}</p>
-                          <p className="text-text-muted text-xs truncate max-w-[140px]" title={order.user.email}>{order.user.email}</p>
+                          <p className="text-text-primary font-medium text-xs">{order.user?.name ?? order.firstName}</p>
+                          <p className="text-text-muted text-xs truncate max-w-[140px]" title={order.user?.email ?? order.email}>{order.user?.email ?? order.email}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -342,9 +343,9 @@ export default function AdminOrdersPage() {
                       <td className="px-4 py-3 text-right font-sans tabular-nums">
                         <div className="space-y-0.5">
                           {order.discountAmount > 0 && (
-                            <p className="text-xs text-green-500">- EGP {order.discountAmount}</p>
+                            <p className="text-xs text-green-500">- EGP {order.discountAmount.toLocaleString()}</p>
                           )}
-                          <p className="text-text-primary font-semibold text-xs">EGP {order.total}</p>
+                          <p className="text-text-primary font-semibold text-xs">EGP {order.total.toLocaleString()}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3">

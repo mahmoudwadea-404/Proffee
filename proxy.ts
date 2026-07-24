@@ -10,10 +10,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // Protect Admin routes (authentication check)
-  // Note: Authorization check (Role = ADMIN) is handled at page/layout component level to avoid Prisma Edge runtime conflicts.
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  // Exclude /admin/login itself from being redirected
+  if (request.nextUrl.pathname.startsWith("/admin") && !request.nextUrl.pathname.startsWith("/admin/login")) {
     if (!user) {
-      return NextResponse.redirect(new URL("/login", request.url))
+      return NextResponse.redirect(new URL("/admin/login", request.url))
     }
   }
 

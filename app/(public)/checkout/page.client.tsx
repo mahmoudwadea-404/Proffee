@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { ArrowLeft, CreditCard, Loader2, MapPin, Package, Tag, X } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useCart } from "@/lib/cart-context"
 import { createOrder, createCardOrder, type CreateOrderInput } from "@/actions/orders"
 import { validateCoupon } from "@/actions/coupons"
@@ -520,13 +521,13 @@ export default function CheckoutPage() {
                   {displayItems.map((item) => (
                     <div key={`${item.productId}-${item.weight}`} className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#3A2A1A] to-[#1A100A] flex items-center justify-center shrink-0 border border-border overflow-hidden">
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover opacity-80" />
+                        <Image src={item.image} alt={item.name} width={48} height={48} className="w-full h-full object-cover opacity-80" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-text-primary truncate">{item.name}</p>
                         <p className="text-xs text-text-muted">{item.weightLabel} × {item.quantity}</p>
                       </div>
-                      <p className="text-sm font-medium text-text-primary tabular-nums">EGP {item.price * item.quantity}</p>
+                      <p className="text-sm font-medium text-text-primary tabular-nums">EGP {(item.price * item.quantity).toLocaleString()}</p>
                     </div>
                   ))}
                 </div>
@@ -534,11 +535,11 @@ export default function CheckoutPage() {
                 <div className="border-t border-border pt-4 space-y-2 text-sm">
                   <div className="flex items-center justify-between text-text-secondary">
                     <span>Subtotal ({displayCount} item{displayCount !== 1 ? "s" : ""})</span>
-                    <span className="text-text-primary font-medium tabular-nums">EGP {displaySubtotal}</span>
+                    <span className="text-text-primary font-medium tabular-nums">EGP {displaySubtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-text-secondary">
                     <span>Shipping</span>
-                    <span className="text-text-primary font-medium tabular-nums">EGP {SHIPPING_FEE}</span>
+                    <span className="text-text-primary font-medium tabular-nums">EGP {SHIPPING_FEE.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -598,14 +599,14 @@ export default function CheckoutPage() {
                 {discountAmount > 0 && (
                   <div className="flex items-center justify-between text-sm text-green-500">
                     <span>Discount</span>
-                    <span className="font-medium tabular-nums">- EGP {discountAmount}</span>
+                    <span className="font-medium tabular-nums">- EGP {discountAmount.toLocaleString()}</span>
                   </div>
                 )}
 
                 <div className="border-t border-border pt-4">
                   <div className="flex items-center justify-between">
                     <span className="text-base font-semibold text-text-primary">Grand Total</span>
-                    <span className="text-2xl font-bold text-primary font-sans tabular-nums">EGP {finalTotal}</span>
+                    <span className="text-2xl font-bold text-primary font-sans tabular-nums">EGP {finalTotal.toLocaleString()}</span>
                   </div>
                 </div>
 

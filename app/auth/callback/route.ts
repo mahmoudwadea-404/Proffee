@@ -6,7 +6,8 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get("code")
   const name = searchParams.get("name") || "User"
-  const next = searchParams.get("next") ?? "/"
+  const rawNext = searchParams.get("next")
+  const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/"
 
   if (code) {
     const response = NextResponse.redirect(new URL(next, origin))
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (!error && data.user) {
+    if (!error && data.user && data.user.email) {
       try {
         const existing = await prisma.user.findUnique({
           where: { supabaseId: data.user.id },
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
             data: {
               supabaseId: data.user.id,
               name: name,
-              email: data.user.email!,
+              email: data.user.email,
             },
           })
         }
@@ -54,5 +55,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL("/login?error=auth_failed", origin))
+  return NextResponse.redirect(new URL("/admin/login?error=auth_failed", origin))
 }

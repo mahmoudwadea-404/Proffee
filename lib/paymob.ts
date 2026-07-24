@@ -106,8 +106,6 @@ export async function createPaymentIntention(
     special_reference: params.specialReference,
   })
 
-  console.log("[paymob] Creating intention — amount:", Math.round(params.amount))
-
   const response = await fetch(`${PAYMOB_BASE_URL}/v1/intention/`, {
     method: "POST",
     headers: {
@@ -123,7 +121,6 @@ export async function createPaymentIntention(
   }
 
   const data = await response.json()
-  console.log("[paymob] Intention created — id:", data.id, "intention_order_id:", data.intention_order_id)
   return {
     id: data.id,
     clientSecret: data.client_secret,

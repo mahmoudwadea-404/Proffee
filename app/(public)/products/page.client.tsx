@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react"
 import { motion } from "framer-motion"
 import { ShoppingCart, SlidersHorizontal, X, Zap } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/lib/cart-context"
 import type { Product } from "@/lib/products"
@@ -260,9 +261,11 @@ export default function ProductsPage({ products, roastLevels }: { products: Prod
                     <Link href={`/products/${product.slug}`} className="group block">
                       <div className="rounded-2xl border border-border bg-surface overflow-hidden hover:border-primary/30 transition-all duration-500">
                         <div className="aspect-[4/3] bg-gradient-to-br from-[#3A2A1A] to-[#1A100A] flex items-center justify-center relative overflow-hidden">
-                          <img
+                          <Image
                             src={product.image}
                             alt={product.name}
+                            width={300}
+                            height={225}
                             className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500 scale-105 group-hover:scale-110 transition-transform duration-700"
                           />
                           <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-semibold uppercase tracking-wider">
@@ -287,7 +290,7 @@ export default function ProductsPage({ products, roastLevels }: { products: Prod
                           </p>
                           <div className="flex items-center justify-between">
                             <p className="text-xl font-semibold text-primary font-sans">
-                              EGP {product.price}
+                              EGP {product.price.toLocaleString()}
                             </p>
                             <div className="flex items-center gap-2">
                               <button
