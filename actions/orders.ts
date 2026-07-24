@@ -343,6 +343,8 @@ export async function createCardOrder(input: CreateCardOrderInput) {
     // itemsTotal is the canonical amount sent to Paymob — sum(item.amount * item.quantity)
     const itemsTotal = paymobItems.reduce((s, i) => s + i.amount * i.quantity, 0)
 
+    console.log("[PAYMOB_INTENTION_REQUEST] amount:", itemsTotal, "currency: EGP", "items:", paymobItems.length, "notificationUrl:", `${baseUrl}/api/webhooks/paymob`)
+
     const intention = await createPaymentIntention({
       amount: itemsTotal, // Use computed items total to guarantee exact match
       items: paymobItems,
@@ -379,20 +381,24 @@ export async function createCardOrder(input: CreateCardOrderInput) {
     console.log("[AUDIT] Payment Initiated — orderId:", order.id)
     return { success: true, checkoutUrl }
   } catch (error) {
-    console.error("[createCardOrder] Error:", error instanceof Error ? error.message : "unknown")
-    if (error instanceof Error) {
-      if (error.message.includes("PAYMOB_SECRET_KEY")) {
-        return { success: false, error: "Invalid payment configuration. Please contact support." }
-      }
-      if (error.message.includes("Paymob intention creation failed")) {
-        return { success: false, error: "Unable to contact payment gateway. Please try again." }
-      }
-      if (error.message.includes("fetch")) {
-        return { success: false, error: "Payment gateway temporarily unavailable. Please try again." }
-      }
-      if (error.message.startsWith("Insufficient stock")) {
-        return { success: false, error: error.message }
-      }
+    const errObj = error instanceof Error ? error : new Error(String(error))
+    console.error("[createCardOrder] FAILED")
+    console.error("[createCardOrder] Message:", errObj.message)
+    console.error("[createCardOrder] Stack:", errObj.stack ?? "(no stack)")
+    const sk = process.env.PAYMOB_SECRET_KEY
+    const iid = process.env.PAYMOB_INTEGRATION_ID
+    console.error("[createCardOrder] Paymob config — secretKey present:", !!sk, "secretKey length:", sk?.trim().length ?? 0, "integrationId:", iid?.trim() ?? "(missing)")
+    if (errObj.message.includes("PAYMOB_SECRET_KEY")) {
+      return { success: false, error: "Invalid payment configuration. Please contact support." }
+    }
+    if (errObj.message.includes("Paymob intention creation failed")) {
+      return { success: false, error: "Unable to contact payment gateway. Please try again." }
+    }
+    if (errObj.message.includes("fetch")) {
+      return { success: false, error: "Payment gateway temporarily unavailable. Please try again." }
+    }
+    if (errObj.message.startsWith("Insufficient stock")) {
+      return { success: false, error: errObj.message }
     }
     return { success: false, error: "Failed to initiate card payment. Please try again." }
   }
@@ -731,6 +737,8 @@ export async function retryCardPayment(orderId: string) {
 
     const retryItemsTotal = retryPaymobItems.reduce((s, i) => s + i.amount * i.quantity, 0)
 
+    console.log("[PAYMOB_INTENTION_REQUEST] amount:", retryItemsTotal, "currency: EGP", "items:", retryPaymobItems.length, "orderId:", order.id)
+
     const intention = await createPaymentIntention({
       amount: retryItemsTotal,
       items: retryPaymobItems,
@@ -778,14 +786,15 @@ export async function retryCardPayment(orderId: string) {
     console.log("[AUDIT] Retry Success — orderId:", order.id)
     return { success: true, checkoutUrl }
   } catch (error) {
-    console.error("[retryCardPayment] Error:", error instanceof Error ? error.message : "unknown")
-    if (error instanceof Error) {
-      if (error.message.includes("Paymob intention creation failed")) {
-        return { success: false, error: "Unable to contact payment gateway. Please try again." }
-      }
-      if (error.message.includes("fetch")) {
-        return { success: false, error: "Payment gateway temporarily unavailable. Please try again." }
-      }
+    const errObj = error instanceof Error ? error : new Error(String(error))
+    console.error("[retryCardPayment] FAILED")
+    console.error("[retryCardPayment] Message:", errObj.message)
+    console.error("[retryCardPayment] Stack:", errObj.stack ?? "(no stack)")
+    if (errObj.message.includes("Paymob intention creation failed")) {
+      return { success: false, error: "Unable to contact payment gateway. Please try again." }
+    }
+    if (errObj.message.includes("fetch")) {
+      return { success: false, error: "Payment gateway temporarily unavailable. Please try again." }
     }
     return { success: false, error: "Failed to retry payment. Please try again." }
   }

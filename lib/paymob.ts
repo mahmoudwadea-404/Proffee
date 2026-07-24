@@ -116,8 +116,15 @@ export async function createPaymentIntention(
   })
 
   if (!response.ok) {
-    console.error("[paymob] Intention creation failed — status:", response.status)
-    throw new Error(`Paymob intention creation failed (${response.status})`)
+    let paymobError: string
+    try {
+      const errBody = await response.json()
+      paymobError = JSON.stringify(errBody)
+    } catch {
+      paymobError = await response.text().catch(() => "(could not read body)")
+    }
+    console.error("[PAYMOB_INTENTION_ERROR] Status:", response.status, "Body:", paymobError)
+    throw new Error(`Paymob intention creation failed (${response.status}): ${paymobError}`)
   }
 
   const data = await response.json()
