@@ -26,19 +26,19 @@ function getSecretKey(): string {
 function getIntegrationId(): number {
   const id = process.env.PAYMOB_INTEGRATION_ID
   if (!id) throw new Error("PAYMOB_INTEGRATION_ID is not set")
-  return Number(id)
+  return Number(id.trim())
 }
 
 function getHmacSecret(): string {
   const secret = process.env.PAYMOB_HMAC_SECRET
   if (!secret) throw new Error("PAYMOB_HMAC_SECRET is not set")
-  return secret
+  return secret.trim()
 }
 
 function getPublicKey(): string {
   const key = process.env.PAYMOB_PUBLIC_KEY
   if (!key) throw new Error("PAYMOB_PUBLIC_KEY is not set")
-  return key
+  return key.trim()
 }
 
 export type CreateIntentionParams = {
