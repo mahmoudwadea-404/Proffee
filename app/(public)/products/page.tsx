@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import ProductsPageClient from "./page.client"
 import { getProducts, getRoastLevels } from "@/lib/db-products"
 
+export const dynamic = "force-dynamic"
+
 export const metadata: Metadata = {
   title: "Our Products | Proffee",
   description: "Browse our curated selection of premium single-origin specialty coffees from the world's finest growing regions.",

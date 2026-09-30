@@ -8,6 +8,8 @@ import FAQ from "@/components/home/FAQ"
 import Newsletter from "@/components/home/Newsletter"
 import { getFeaturedProducts } from "@/lib/db-products"
 
+export const dynamic = "force-dynamic"
+
 export const metadata: Metadata = {
   title: "Proffee | Premium Specialty Coffee",
   description: "Discover the world of premium specialty coffee with Proffee. Carefully selected roasts from Ethiopia, Colombia, Kenya, and more.",
