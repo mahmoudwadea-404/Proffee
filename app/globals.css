@@ -4,6 +4,7 @@
   --font-serif: var(--font-playfair);
   --font-sans: var(--font-inter);
   --font-script: var(--font-great-vibes);
+  --font-arabic: var(--font-cairo);
 
   --color-background: #120B06;
   --color-surface: #1A100A;

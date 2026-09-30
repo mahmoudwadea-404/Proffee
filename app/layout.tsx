@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Playfair_Display, Inter, Great_Vibes } from "next/font/google"
+import { Playfair_Display, Inter, Great_Vibes, Cairo } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "sonner"
 import { CartProvider } from "@/lib/cart-context"
@@ -26,6 +26,13 @@ const greatVibes = Great_Vibes({
   display: "swap",
 })
 
+const cairo = Cairo({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-cairo",
+  display: "swap",
+})
+
 export const metadata: Metadata = {
   title: "Proffee | Premium Specialty Coffee",
   description: "Discover the world of premium specialty coffee with Proffee. Carefully selected roasts and meticulous attention to every detail of your cup.",
@@ -40,7 +47,7 @@ export default function RootLayout({
     <html
       lang="en"
       dir="ltr"
-      className={`${playfair.variable} ${inter.variable} ${greatVibes.variable} h-full antialiased`}
+      className={`${playfair.variable} ${inter.variable} ${greatVibes.variable} ${cairo.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-text-primary">
         <CartProvider>

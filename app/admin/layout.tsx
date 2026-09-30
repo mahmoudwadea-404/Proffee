@@ -18,11 +18,18 @@ const navItems = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const isLoginPage = pathname === "/admin/login"
   const supabaseRef = useRef(createClient())
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!isLoginPage)
   const [authorized, setAuthorized] = useState(false)
 
   useEffect(() => {
+    if (isLoginPage) {
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
     const supabase = supabaseRef.current
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -45,11 +52,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setLoading(false)
     }
     checkAdmin()
-  }, [router])
+  }, [router, isLoginPage])
 
   const handleLogout = async () => {
     await supabaseRef.current.auth.signOut()
     window.location.href = "/"
+  }
+
+  if (isLoginPage) {
+    return <>{children}</>
   }
 
   if (loading) {

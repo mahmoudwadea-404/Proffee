@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ShoppingBag, Menu, X, LogOut, Shield } from "lucide-react"
+import { ShoppingBag, Menu, X, LogOut, Shield, User as UserIcon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import { useCart } from "@/lib/cart-context"
@@ -131,15 +131,16 @@ export default function Navbar() {
           )}
         </Link>
 
-        {!loading && isAdmin && user && (
+        {!loading && isAdmin && user ? (
           <div className="relative group">
             <div className="flex items-center gap-2">
               <Link
                 href="/admin"
                 className="p-2 text-text-secondary hover:text-primary transition-colors duration-300 flex items-center gap-1"
                 aria-label="Admin Panel"
+                title="Admin Dashboard"
               >
-                <Shield className="w-5 h-5" />
+                <Shield className="w-5 h-5 text-primary" />
               </Link>
               <div className="absolute right-0 mt-2 w-48 rounded-md bg-surface border border-border py-1 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 origin-top-right z-50">
                 <div className="px-4 py-2 border-b border-border text-xs text-text-secondary truncate">
@@ -162,6 +163,15 @@ export default function Navbar() {
               </div>
             </div>
           </div>
+        ) : (
+          <Link
+            href="/admin/login"
+            className="p-2 text-text-secondary hover:text-primary transition-colors duration-300"
+            aria-label="Admin Login"
+            title="Admin Login"
+          >
+            <UserIcon className="w-5 h-5" />
+          </Link>
         )}
 
         <button
@@ -212,7 +222,7 @@ export default function Navbar() {
             </nav>
 
             <div className="border-t border-border pt-6 mt-auto">
-              {!loading && isAdmin && user && (
+              {!loading && isAdmin && user ? (
                 <div className="space-y-4">
                   <div className="text-xs text-text-secondary truncate">{user.email}</div>
                   <Link
@@ -231,6 +241,15 @@ export default function Navbar() {
                     Sign Out
                   </button>
                 </div>
+              ) : (
+                <Link
+                  href="/admin/login"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2 py-2 text-text-secondary hover:text-primary transition-colors"
+                >
+                  <UserIcon className="w-5 h-5" />
+                  Admin Login
+                </Link>
               )}
             </div>
           </motion.div>

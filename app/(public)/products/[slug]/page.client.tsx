@@ -107,7 +107,11 @@ export default function ProductDetailPage({ product, related }: { product: Produ
               </h1>
             </div>
 
-            <p className="text-text-secondary text-lg leading-relaxed">
+            <p
+              dir="rtl"
+              className="text-text-secondary text-base md:text-lg leading-relaxed md:leading-[1.9] font-normal tracking-wide text-right"
+              style={{ fontFamily: "var(--font-cairo), system-ui, sans-serif" }}
+            >
               {product.longDescription}
             </p>
 

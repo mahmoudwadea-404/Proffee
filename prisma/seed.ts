@@ -8,7 +8,7 @@ const products = [
     slug: "plain-light-roast",
     description: "A clean, classic light roast – نقي وخفيف, perfect for pour-over and drip.",
     longDescription:
-      "Plain Light Roast is our purest expression of specialty coffee — سادة فاتح, just the way coffee should taste. Lightly roasted to preserve the bean's natural character, this cup delivers a silky body with bright floral notes and a hint of honey sweetness. It starts delicate on the tongue and finishes clean, with zero bitterness. Perfect for your morning V60 or Chemex, yā sādi — ياسلام على النقاوة. If you love a cup that lets the bean speak for itself, this is your brew.",
+      "قهوة سادة فاتح تجسد أرقى معايير القهوة المختصة بنقائها الاستثنائي وقوامها الحريري الخفيف. تم تحميص حبوب الأرابيكا الإثيوبية بعناية لتبرز النغمات الزهرية العطرة مع لمسات عسلية طبيعية وانتعاش حمضي هادئ. تنتهي بنعومة فائقة تخلو من أي مرارة، لتكون خيارك الأمثل لتقطير صباحي منعش وراقي.",
     origin: "Ethiopia",
     price: 180,
     stock: 50,
@@ -28,7 +28,7 @@ const products = [
     slug: "plain-medium-roast",
     description: "Balanced and approachable – وسط في كل حاجة, smooth enough for everyone.",
     longDescription:
-      "Our Plain Medium Roast is the heart of the menu — سادة وسط, the balance you come home to. Roasted to a perfect medium, this coffee brings together caramel sweetness, milk chocolate roundness, and a hint of toasted almond. It is smooth, approachable, and works beautifully with any brewing method — espresso, Aeropress, or simply sāda on the stove. Yā salām on that lingering sweet finish. For those who want a cup that just feels right, this is it.",
+      "قهوتنا السادة الوسط هي القلب النابض لقائمة بروفي، والخلطة المتوازنة التي تألفها حواسك من أول رشفة. تجمع حبوب الأرابيكا الكولومبية بين حلاوة الكراميل الدافئة ولمسات مخملية من شوكولاتة الحليب واللوز المحمص. تمتاز بقوام ناعم ومتناسق يلائم كافة طرق التحضير لتستمتع بنهاية سكرية تدوم طويلاً.",
     origin: "Colombia",
     price: 170,
     stock: 50,
@@ -48,7 +48,7 @@ const products = [
     slug: "plain-dark-roast",
     description: "Bold, smoky, and unapologetically dark – غامق وقوي, for the true coffee soul.",
     longDescription:
-      "Plain Dark Roast is for those who like it deep — سادة غامق, no sugar, no fuss, just pure intensity. We push this roast just into second crack to unlock a powerful cup with notes of dark chocolate, roasted almond, and a whisper of fine tobacco smoke. Full-bodied and velvety, it stands up to milk, cuts through desserts, and satisfies that deep coffee craving. El3ab yā bā — العب يا بطل, this one is not messing around. A classic dark roast that earns its place on any shelf.",
+      "قهوة سادة غامق لعشاق الطابع القوي والتركيز العالي، حيث نوصل التحميص بحرفية لإطلاق كامل الزيوت العطرية العميقة. تفوح بنكهات الشوكولاتة الداكنة الكثيفة مع لمحات اللوز المحمص ونفحات دخانية دافئة تأسر الحواس. تمتاز بقوام مخملي ثقيل يوقظ تركيزك ويمنحك دفعة طاقة حقيقية في كل فنجان.",
     origin: "Brazil",
     price: 175,
     stock: 50,
@@ -68,7 +68,7 @@ const products = [
     slug: "mahwaj-light-roast",
     description: "A traditional spiced blend with a light touch – محوج فاتح, aromatic and elegant.",
     longDescription:
-      "Mahwaj is a beloved Egyptian coffee tradition — محوج, a carefully spiced blend passed down through generations. Our Light Roast version keeps the spice gentle and the coffee forward, allowing floral and citrus notes to mingle with warm cardamom and a hint of cinnamon. This is a cup that smells as beautiful as it tastes, with a clean, bright finish. Perfect after a meal, or whenever you want something special. Yā zahra — يا زهرة, this one is pure heritage in a cup.",
+      "تحويجة بروفي الفاتحة تقدم التوليفة التراثية المصرية العريقة بأرقى لمسات حبوب الأرابيكا اليمنية الفاخرة. يمتزج فيها الهيل الحبشي الأخضر مع لمسة قرفة هادئة والنغمات الزهرية الطبيعية لحبات البن الخفيفة. تمنحك رائحة زكية تملأ الأرجاء وطعماً سلساً ينبض بالأصالة دون أي ثقل، ليكون ختاماً راقياً ليومك.",
     origin: "Yemen",
     price: 200,
     stock: 50,
@@ -88,7 +88,7 @@ const products = [
     slug: "mahwaj-medium-roast",
     description: "The classic mahwaj blend – محوج على الأصول, spiced, warm, and perfectly balanced.",
     longDescription:
-      "This is the mahwaj everyone knows and loves — محوج وسط, the Goldilocks of spiced coffee. Medium-roasted to marry the coffee body with the spice profile, it delivers bold notes of cardamom, ginger, and clove wrapped around a rich caramel centre. The spices are present but never overpowering — just warm, aromatic, and deeply comforting. Brew it on the stove with sugar the Egyptian way, or enjoy it black. Alf saba7 sharaf — ألف صباح شرف, this is how you start a morning right.",
+      "الخلطة الأيقونية المحبوبة التي صنعت على الأصول لتكون المعيار الذهبي للقهوة المحوجة المتزنة في مصر. يلتقي فيها الهيل العطري الفاخر مع دفء الزنجبيل ولمسات خفيفة من القرنفل، ملتفة حول قوام القهوة السلس ونغمات الكراميل الطبيعية. تمنحك مذاقاً دافئاً ومريحاً مع وش متماسك لبداية يوم مفعمة بالنشاط.",
     origin: "Yemen",
     price: 195,
     stock: 50,
@@ -108,7 +108,7 @@ const products = [
     slug: "mahwaj-dark-roast",
     description: "Bold spice meets deep roast – محوج غامق, intense and unforgettable.",
     longDescription:
-      "Mahwaj Dark Roast is for the spice lover who wants it all — محوج غامق, deep, dark, and layered. We take the classic mahwaj spice mix and pair it with a full dark roast, creating a cup that is both powerfully bold and aromatically complex. Dark chocolate, smoky cardamom, and a hint of black pepper come together in a velvety brew that lingers long after the last sip. This is not a subtle coffee — ده مش قهوة عادية. It demands attention, and it rewards the brave.",
+      "لعشاق التوابل الجريئة والنكهات العميقة التي تترك بصمة لا تُنسى، صممنا هذا المزيج المحوج الغامق المكثف. تلتقي فيه حدة الشوكولاتة السوداء مع عبق الهيل المركز ولدغة لطيفة من الفلفل الأسود والقرنفل تمنحه شخصية فريدة. مشروب ذو قوام ثقيل ونكهة عارمة تفرض هيبتها من أول رشفة وحتى آخر الفنجان.",
     origin: "Yemen",
     price: 205,
     stock: 50,
@@ -128,7 +128,7 @@ const products = [
     slug: "french-roast",
     description: "The classic French-style dark roast – فرنساوي أصلي, rich, smoky, and timeless.",
     longDescription:
-      "French Roast is a worldwide classic — فرنساوي أصلي, and ours is true to the tradition. Roasted to a deep, oily dark brown, this coffee delivers an intense, smoky-sweet cup with notes of bittersweet chocolate, charred oak, and a hint of dark caramel. Low acidity and a full, almost syrupy body make it the ultimate espresso base or a powerful black coffee on its own. Mazyōna awī — مزبوطة أوي, this is the French roast you have been looking for. It does not hide. It does not apologise.",
+      "التحميص الفرنسي الكلاسيكي على أصوله بلونه البني الداكن وطابعه الدخاني الفاخر المعقد والآسر. ينفرد بنوتات ساحرة من الكاكاو المر المركز، خشب البلوط المعتق، ولمسات غنية من الكراميل المحروق بحموضة شبه منعدمة. يمثل هذا البن القاعدة الذهبية لإعداد قهوة فرنساوي بالحليب برغوة غنية وقوام زيتي ممتلئ.",
     origin: "Blend",
     price: 190,
     stock: 50,
@@ -148,7 +148,7 @@ const products = [
     slug: "french-hazelnut",
     description: "A silky French roast kissed with hazelnut – فرنساوي بندق, smooth, sweet, and irresistible.",
     longDescription:
-      "French Hazelnut is our most indulgent brew — فرنساوي بندق, combining the bold depth of a French roast with the sweet, buttery warmth of toasted hazelnut. The base is the same rich, smoky French roast you love. A touch of natural hazelnut flavouring adds a layer of sweetness and creaminess that makes this coffee dangerously drinkable black. No sugar needed. It is smooth, aromatic, and finishes like a warm hug. Yā salām on this one — ياسلام على البندق. If you love flavoured coffee, you just found your new favourite.",
+      "القهوة الأكثر دلالاً ورفاهية، حيث نجمع بين فخامة التحميص الفرنسي الغامق والنكهة الدافئة للبندق المحمص الفاخر. يمنحك هذا المزيج تجربة غنية تفوح برائحة الكراميل الزبدي والفانيليا الرقيقة لتذوب في الفم بنعومة تنسيك الحاجة للسكر. صُممت لتمنحك شعوراً بالدفء والراحة مع الحليب المبخر في أوقات الاسترخاء.",
     origin: "Blend",
     price: 210,
     stock: 50,
@@ -166,14 +166,17 @@ const products = [
 ]
 
 async function main() {
-  console.log("Clearing old products...")
-  const { count } = await prisma.product.deleteMany()
-  console.log(`  Removed ${count} old products.`)
-
-  console.log("Seeding 8 real products...")
+  console.log("Upserting 8 products with 4-line Arabic descriptions...")
   for (const product of products) {
-    const created = await prisma.product.create({ data: product })
-    console.log(`  ✓ ${created.name}`)
+    const updated = await prisma.product.upsert({
+      where: { slug: product.slug },
+      update: {
+        longDescription: product.longDescription,
+        origin: product.origin,
+      },
+      create: product,
+    })
+    console.log(`  ✓ ${updated.name}`)
   }
 
   console.log("Seeding complete.")
